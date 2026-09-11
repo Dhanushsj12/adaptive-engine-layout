@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Adaptive Layout Engine — Proof Sheet</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="masthead">
+        <h1>Adaptive Layout Engine</h1>
+        <p class="subhead">One ad spec. Four surfaces. Zero hardcoded layouts.</p>
+      </header>
+
+      <div class="workspace">
+        <aside class="rail" id="surface-rail">
+          <h2 class="rail-title">Surface</h2>
+          <div id="surface-list" class="surface-list"></div>
+        </aside>
+
+        <main class="proof">
+          <div class="proof-frame">
+            <div id="canvas-mount"></div>
+          </div>
+          <p class="proof-caption" id="proof-caption"></p>
+        </main>
+
+        <aside class="log">
+          <h2 class="log-title">Resolution log</h2>
+          <ol id="log-list" class="log-list"></ol>
+          <div class="legend">
+            <div class="legend-row"><span class="swatch swatch-clean"></span>placed at ideal size</div>
+            <div class="legend-row"><span class="swatch swatch-degraded"></span>shrunk / repositioned</div>
+            <div class="legend-row"><span class="swatch swatch-dropped"></span>dropped entirely</div>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

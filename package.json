@@ -1,0 +1,17 @@
+{
+  "name": "adaptive-layout-engine",
+  "version": "1.0.0",
+  "description": "A constraint-based layout resolver that adapts one ad spec across many surface profiles.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "stress-test": "tsx scripts/stress-test.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0",
+    "tsx": "^4.16.2"
+  }
+}

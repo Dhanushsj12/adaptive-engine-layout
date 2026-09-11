@@ -88,6 +88,13 @@ export interface ResolvedElement {
   readonly height: number;
   /** Only meaningful for "text" and "button" elements. */
   readonly fontSize?: number;
+  /** Max lines the renderer should clamp to - prevents any residual
+   * vertical overflow even if the font-size search above had to guess. */
+  readonly lineClampLines?: number;
+  /** True if even the minimum readable font size didn't fit - the
+   * renderer should show an ellipsis rather than attempt to display the
+   * full text. */
+  readonly truncated?: boolean;
   readonly visible: boolean;
   readonly degradation: DegradationAction;
 }

@@ -52,10 +52,6 @@ function renderElement(el: ResolvedElement, source: AdElement | undefined): HTML
   box.style.overflow = "hidden";
   box.style.fontFamily = "system-ui, sans-serif";
   box.style.textAlign = "center";
-  box.style.padding = "0";
-  box.style.lineHeight = "1.25";
-  box.style.whiteSpace = "normal";
-  box.style.overflowWrap = "anywhere";
   box.style.border = el.degradation !== "none" ? "1px dashed #c98a2c" : "none";
 
   if (el.type === "image") {
@@ -70,11 +66,22 @@ function renderElement(el: ResolvedElement, source: AdElement | undefined): HTML
     box.style.borderRadius = "4px";
     box.style.cursor = "pointer";
     box.style.fontSize = `${el.fontSize ?? 14}px`;
+    box.style.whiteSpace = "nowrap";
+    box.style.textOverflow = "ellipsis";
     box.textContent = source?.content ?? "";
   } else {
     box.style.color = ROLE_COLORS[el.role] ?? "#1b1f23";
     box.style.fontSize = `${el.fontSize ?? 14}px`;
     box.style.fontWeight = el.role === "primary" ? "600" : "400";
+    box.style.lineHeight = "1.25";
+    // Hard safety net: clamp to the exact line count the resolver decided
+    // on, with an ellipsis, so text can never visually spill past its own
+    // box regardless of any font-metric estimation error upstream.
+    const clamp = el.lineClampLines ?? 1;
+    box.style.display = "-webkit-box";
+    (box.style as unknown as Record<string, string>)["-webkit-line-clamp"] = String(clamp);
+    (box.style as unknown as Record<string, string>)["-webkit-box-orient"] = "vertical";
+    box.style.textOverflow = "ellipsis";
     box.textContent = source?.content ?? "";
   }
 

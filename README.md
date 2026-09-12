@@ -419,25 +419,25 @@ All screenshots are stored under `screenshots/` and showcase both browser DOM pr
 
 ## Automated CLI Stress-Test Logs
 
-### Scenario 1: Required Surface Profiles
+
 
 ![Stress Test 1](screenshots/stresstest1.png)
 
 ---
 
-### Scenario 2: Constrained Degradation & Tight Banner
+
 
 ![Stress Test 2](screenshots/stresstest2.png)
 
 ---
 
-### Scenario 3: Unseen Surface
+
 
 ![Stress Test 3](screenshots/stresstest3.png)
 
 ---
 
-### Scenario 4: Equal-Priority Tiebreaking
+
 
 ![Stress Test 4](screenshots/stresstest4.png)
 

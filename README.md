@@ -7,6 +7,7 @@ The engine does **not** contain surface-specific layout branches such as:
 ```ts
 if (surface === "mobile") { ... }
 if (surface === "kiosk") { ... }
+
 ```
 
 Instead, the resolver derives a composition strategy from the **geometry and aspect ratio of the surface**, solves element spatial constraints, protects higher-priority content, and progressively degrades lower-priority elements when space becomes constrained.
@@ -17,7 +18,7 @@ Instead, the resolver derives a composition strategy from the **geometry and asp
 
 The adaptive layout engine is deployed online and can be tested directly in the browser.
 
-**Live Demo:** https://adaptive-engine-layout.vercel.app/
+**Live Demo:** [https://adaptive-engine-layout.vercel.app/](https://adaptive-engine-layout.vercel.app/)
 
 The demo allows the same advertisement specification to be resolved across different surface geometries. Use the surface selector to switch between the available profiles and observe how the resolver changes element placement, sizing, repositioning, and degradation based on the constraints.
 
@@ -42,21 +43,22 @@ The system separates:
 
 ```text
 ONE AD SPECIFICATION
-       │
-       ▼
+        │
+        ▼
 SURFACE GEOMETRY & CONSTRAINTS
-       │
-       ▼
+        │
+        ▼
 ORIENTATION STRATEGY ROUTING
-       │
-       ▼
+        │
+        ▼
 CONSTRAINT RESOLUTION & DEGRADATION
-       │
-       ▼
+        │
+        ▼
 RESOLVED LAYOUT METRICS
-       │
-       ▼
+        │
+        ▼
 DOM RENDERING
+
 ```
 
 ---
@@ -76,6 +78,7 @@ const sampleAdSpec = defineAd({
     image({ id: "logo", role: "branding", priority: 3, aspectRatio: 1 }),
   ],
 });
+
 ```
 
 The product image element renders a real product photo (`public/image.png`), not just a placeholder color block, so the demo reflects a realistic ad rather than a bare wireframe.
@@ -120,23 +123,24 @@ Ad Specification + Surface Constraints
   (portrait | landscape | wide-banner | square)
                  │
                  ▼
-      Ideal Region Geometry Calculation
+     Ideal Region Geometry Calculation
                  │
                  ▼
-       Priority-Ordered Placement Pass
+        Priority-Ordered Placement Pass
                  │
                  ▼
          Constraint Resolution
-   ┌─────────────┼─────────────┬─────────────┐
-   ▼             ▼             ▼             ▼
- [Fits]      [Shrink]    [Reposition]     [Drop]
-   └─────────────┼─────────────┴─────────────┘
+    ┌─────────────┼─────────────┬─────────────┐
+    ▼             ▼             ▼             ▼
+  [Fits]       [Shrink]   [Reposition]    [Drop]
+    └─────────────┼─────────────┴─────────────┘
                  │
                  ▼
-          Resolved Layout Data
+         Resolved Layout Data
                  │
                  ▼
             DOM Renderer
+
 ```
 
 1. **Orientation Strategy Routing**: Determines layout composition based on content-box aspect ratios rather than string identifiers.
@@ -169,6 +173,7 @@ Repositioned (Free-Space Search)
      │
      ▼
 Dropped Element
+
 ```
 
 The resolver reports these explicit decisions in its output rather than allowing silent bounding box overlaps or browser text clipping.
@@ -228,6 +233,7 @@ adaptive-layout-engine/
 ├── package.json
 ├── tsconfig.json
 └── vite.config.ts
+
 ```
 
 ---
@@ -235,30 +241,39 @@ adaptive-layout-engine/
 # 9. Key File Responsibilities
 
 ### `src/types.ts`
+
 Defines core contracts for specs, elements, surface constraints, degradation states, and resolved pixel layout payloads.
 
 ### `src/spec.ts`
+
 Implements `defineAd()` validation routines to check for duplicate IDs, missing content, or invalid aspect ratios at compile/runtime.
 
 ### `src/surfaces.ts`
+
 Defines physical surface profile constraints (e.g., `minTapTarget`, `minTextSize`, `viewingDistance`).
 
 ### `src/composition-strategies.ts`
+
 Provides initial layout compositions derived purely from surface geometry classes (`portrait`, `landscape`, `wide-banner`, `square`).
 
 ### `src/resolver.ts`
+
 Contains the core constraint solver and degradation state machine.
 
 ### `src/geometry.ts`
+
 Implements 2D rectangle mathematics, box collisions, and candidate region searches.
 
 ### `src/text-measure.ts`
+
 Provides text measurement utilities to inform font sizing and wrapping rules.
 
 ### `src/render-dom.ts`
+
 Translates solved bounding metrics (`x`, `y`, `width`, `height`) directly into HTML elements without performing layout re-calculations.
 
 ### `scripts/stress-test.ts`
+
 Executes automated, headless validation scenarios across normal, adversarial, and tiebreak conditions.
 
 ---
@@ -280,6 +295,7 @@ Core interfaces in `src/types.ts` prevent invalid specifications and surface con
 
 ```bash
 npm install
+
 ```
 
 ### Development Server
@@ -288,6 +304,7 @@ Start the local interactive preview app with live surface switching:
 
 ```bash
 npm run dev
+
 ```
 
 ### Type Checking
@@ -296,6 +313,7 @@ Run strict TypeScript validation:
 
 ```bash
 npm run typecheck
+
 ```
 
 ### Automated Stress Test Suite
@@ -304,6 +322,7 @@ Run the framework-agnostic resolver verification script:
 
 ```bash
 npm run stress-test
+
 ```
 
 ### Production Build
@@ -312,6 +331,7 @@ Compile optimized production assets:
 
 ```bash
 npm run build
+
 ```
 
 ---
@@ -375,37 +395,29 @@ All screenshots are stored under `screenshots/` and showcase both browser DOM pr
 
 ### Mobile Portrait (`320 × 480`)
 
-![Mobile Portrait](screenshots/mobileportrait.png)
-
 ---
 
 ### Mobile Landscape (`480 × 320`)
-
-![Mobile Landscape](screenshots/mobilelandscape.png)
 
 ---
 
 ### Broadcast Lower Third (`1920 × 250`)
 
-![Broadcast Lower Third](screenshots/broadcastlowerthird.png)
-
 ---
 
 ### Retail Kiosk (`1080 × 1080`)
-
-![Retail Kiosk](screenshots/retailkiosk.png)
 
 ---
 
 ### Unseen Print-to-Digital QR Panel — demo surface (`600 × 900`)
 
-![Unseen print to digital QR Surface](screenshots/unseen.png)
-
 ---
 
 ### Impossible Tight Banner (`1200 × 80`)
 
-![Impossible Tight Banner](screenshots/impossibly.png)
+---
+
+### Custom Surface
 
 ---
 
@@ -413,12 +425,6 @@ All screenshots are stored under `screenshots/` and showcase both browser DOM pr
 
 The logs below include the second, independent unseen-surface proof (`2400 × 300`), defined only in `scripts/stress-test.ts`.
 
-![Stress Test 1](screenshots/stresstest1.png)
-
 ---
 
-![Stress Test 2](screenshots/stresstest2.png)
-
 ---
-
-![Stress Test 3](screenshots/stresstest3.png)

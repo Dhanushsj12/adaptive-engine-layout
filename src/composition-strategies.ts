@@ -23,35 +23,35 @@ export const COMPOSITION_TEMPLATES: Readonly<
       x: 0,
       y: 0,
       w: 1,
-      h: 0.4,
+      h: 0.38,
     },
 
     primary: {
       x: 0.04,
-      y: 0.43,
+      y: 0.42,
       w: 0.92,
-      h: 0.13,
+      h: 0.17,
     },
 
     secondary: {
       x: 0.04,
-      y: 0.58,
+      y: 0.8,
       w: 0.92,
       h: 0.08,
     },
 
     action: {
       x: 0.15,
-      y: 0.68,
+      y: 0.65,
       w: 0.7,
       h: 0.14,
     },
 
     branding: {
       x: 0.35,
-      y: 0.86,
+      y: 0.9,
       w: 0.3,
-      h: 0.1,
+      h: 0.08,
     },
   },
 
@@ -106,37 +106,37 @@ export const COMPOSITION_TEMPLATES: Readonly<
   "wide-banner": {
     hero: {
       x: 0.01,
-      y: 0.1,
+      y: 0.05,
       w: 0.12,
-      h: 0.8,
+      h: 0.9,
     },
 
     primary: {
-      x: 0.15,
-      y: 0.12,
-      w: 0.38,
-      h: 0.76,
+      x: 0.14,
+      y: 0.05,
+      w: 0.40,
+      h: 0.9,
     },
 
     secondary: {
-      x: 0.54,
-      y: 0.12,
-      w: 0.14,
-      h: 0.76,
+      x: 0.55,
+      y: 0.05,
+      w: 0.12,
+      h: 0.9,
     },
 
     action: {
-      x: 0.69,
-      y: 0.12,
-      w: 0.17,
-      h: 0.76,
+      x: 0.68,
+      y: 0.05,
+      w: 0.18,
+      h: 0.9,
     },
 
     branding: {
-      x: 0.88,
-      y: 0.2,
-      w: 0.1,
-      h: 0.6,
+      x: 0.87,
+      y: 0.15,
+      w: 0.12,
+      h: 0.7,
     },
   },
 

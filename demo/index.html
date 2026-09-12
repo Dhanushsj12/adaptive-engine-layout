@@ -3,40 +3,169 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Adaptive Layout Engine — Proof Sheet</title>
+
+    <meta
+      name="description"
+      content="Constraint-based adaptive layout engine for multi-surface advertising."
+    />
+
+    <title>Adaptive Layout Engine</title>
+
     <link rel="stylesheet" href="./style.css" />
   </head>
+
   <body>
     <div class="app">
+
+      <!-- HEADER -->
       <header class="masthead">
-        <h1>Adaptive Layout Engine</h1>
-        <p class="subhead">One ad spec. Four surfaces. Zero hardcoded layouts.</p>
+        <div class="brand-row">
+          <div>
+            
+
+            <h1>Adaptive Layout Engine</h1>
+
+            <p class="subhead">
+              One declarative ad spec. Constraint-driven composition across
+              fundamentally different surfaces.
+            </p>
+          </div>
+
+          <div class="engine-status">
+            <span class="status-dot"></span>
+            ENGINE ONLINE
+          </div>
+        </div>
       </header>
 
+      <!-- METRICS -->
+      <section class="metrics" aria-label="Engine summary">
+        <div class="metric">
+          <span class="metric-value">01</span>
+          <span class="metric-label">Ad spec</span>
+        </div>
+
+        <div class="metric">
+          <span class="metric-value" id="surface-count">06</span>
+          <span class="metric-label">Surfaces</span>
+        </div>
+
+        <div class="metric">
+          <span class="metric-value">04</span>
+          <span class="metric-label">Strategies</span>
+        </div>
+
+        <div class="metric">
+          <span class="metric-value">0</span>
+          <span class="metric-label">Overlap allowed</span>
+        </div>
+      </section>
+
+      <!-- WORKSPACE -->
       <div class="workspace">
+
+        <!-- LEFT -->
         <aside class="rail" id="surface-rail">
-          <h2 class="rail-title">Surface</h2>
+
+          <div class="section-heading">
+            <span>01</span>
+            <h2>Surfaces</h2>
+          </div>
+
+          <p class="section-description">
+            Same spec. Different constraints.
+          </p>
+
           <div id="surface-list" class="surface-list"></div>
+
         </aside>
 
+        <!-- CENTER -->
         <main class="proof">
+
+          <div class="preview-header">
+            <div>
+              <span class="preview-kicker">LIVE RESOLUTION</span>
+              <h2 id="active-surface-title">Surface Preview</h2>
+            </div>
+
+            <div class="preview-meta">
+              <span id="preview-dimensions">—</span>
+              <span class="separator">·</span>
+              <span id="preview-orientation">—</span>
+            </div>
+          </div>
+
           <div class="proof-frame">
+            <div class="preview-grid"></div>
             <div id="canvas-mount"></div>
           </div>
+
+          <div class="constraint-strip" id="constraint-strip"></div>
+
           <p class="proof-caption" id="proof-caption"></p>
+
         </main>
 
+        <!-- RIGHT -->
         <aside class="log">
-          <h2 class="log-title">Resolution log</h2>
-          <ol id="log-list" class="log-list"></ol>
-          <div class="legend">
-            <div class="legend-row"><span class="swatch swatch-clean"></span>placed at ideal size</div>
-            <div class="legend-row"><span class="swatch swatch-degraded"></span>shrunk / repositioned</div>
-            <div class="legend-row"><span class="swatch swatch-dropped"></span>dropped entirely</div>
+
+          <div class="section-heading">
+            <span>02</span>
+            <h2>Resolution</h2>
           </div>
+
+          <p class="section-description">
+            Decisions made by the resolver.
+          </p>
+
+          <div class="resolution-summary" id="resolution-summary"></div>
+
+          <ol id="log-list" class="log-list"></ol>
+
+          <div class="why-panel">
+            <div class="why-title">
+              <span>03</span>
+              Why this layout?
+            </div>
+
+            <div class="pipeline">
+              <span>Spec</span>
+              <b>→</b>
+              <span>Constraints</span>
+              <b>→</b>
+              <span>Priority</span>
+              <b>→</b>
+              <span>Fit</span>
+              <b>→</b>
+              <span>Degrade</span>
+            </div>
+          </div>
+
+          <div class="legend">
+
+            <div class="legend-row">
+              <span class="swatch swatch-clean"></span>
+              <span>ideal placement</span>
+            </div>
+
+            <div class="legend-row">
+              <span class="swatch swatch-degraded"></span>
+              <span>shrunk / repositioned</span>
+            </div>
+
+            <div class="legend-row">
+              <span class="swatch swatch-dropped"></span>
+              <span>dropped</span>
+            </div>
+
+          </div>
+
         </aside>
       </div>
+
     </div>
+
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

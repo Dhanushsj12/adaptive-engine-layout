@@ -25,6 +25,7 @@ import { resolveLayout } from "../src/resolver";
 
 import type {
   AdSpec,
+  ResolvedLayout,
   SurfaceProfile,
 } from "../src/types";
 
@@ -84,7 +85,7 @@ function report(
   label: string,
   spec: AdSpec,
   surface: SurfaceProfile
-): void {
+): ResolvedLayout {
   const layout = resolveLayout(
     spec,
     surface
@@ -118,6 +119,33 @@ function report(
       );
     }
   }
+
+  return layout;
+}
+
+function assert(
+  condition: boolean,
+  message: string
+): void {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+function elementById(
+  layout: ResolvedLayout,
+  id: string
+) {
+  const element = layout.elements.find(
+    (candidate) => candidate.id === id
+  );
+
+  assert(
+    Boolean(element),
+    `Expected resolved element "${id}".`
+  );
+
+  return element!;
 }
 
 console.log(
@@ -144,10 +172,33 @@ console.log(
   "The resolver must protect higher-priority elements first and degrade lower-priority elements when necessary."
 );
 
-report(
+const tightBannerLayout = report(
   "novaBudsProAd",
   productAd,
   impossiblyTightBanner
+);
+
+assert(
+  elementById(tightBannerLayout, "headline").visible,
+  "Priority-1 headline should stay visible on the tight banner."
+);
+
+assert(
+  elementById(tightBannerLayout, "product-image").visible,
+  "Priority-1 product image should stay visible on the tight banner."
+);
+
+assert(
+  elementById(tightBannerLayout, "cta").visible,
+  "Priority-2 CTA should stay visible before lower-priority branding is considered."
+);
+
+assert(
+  tightBannerLayout.warnings.some((warning) =>
+    warning.includes("headline") &&
+    warning.includes("truncated")
+  ),
+  "Tight banner should demonstrate controlled headline truncation."
 );
 
 console.log(

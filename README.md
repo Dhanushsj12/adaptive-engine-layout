@@ -102,7 +102,7 @@ The two "unseen" surfaces above are intentionally separate and independently pro
 | **Mobile Landscape** | $480 \times 320$ | Landscape | Split dual-column composition; full content visibility. |
 | **Broadcast Lower Third** | $1920 \times 250$ | Wide Banner | Horizontal row composition; enforces far-viewing text constraints ($32\text{px}+$ min size). |
 | **Retail Kiosk** | $1080 \times 1080$ | Square | High-impact centered composition; enforces large touch targets ($60\text{px}+$ min size). |
-| **Impossible Tight Banner** | $1200 \times 80$ | Stress Test | Extreme spatial constraint; branding/secondary elements degrade gracefully. |
+| **Impossible Tight Banner** | $1200 \times 80$ | Stress Test | Extreme spatial constraint; protected headline remains visible with controlled ellipsis instead of clipping. |
 | **Unseen QR Panel (demo)** | $600 \times 900$ | Portrait | Resolved dynamically from geometry without hardcoded configuration. |
 | **Unseen Surface (CLI script)** | $2400 \times 300$ | Wide Banner | A second, independent unseen surface used only in `scripts/stress-test.ts`. |
 
@@ -326,7 +326,7 @@ Validates that `Mobile Portrait`, `Mobile Landscape`, `Broadcast Lower Third`, a
 
 ### Scenario 2 — Impossible Tight Banner ($1200 \times 80$)
 
-Tests severe spatial constraints. Verifies that low-priority elements (`logo`, `secondary text`) degrade or drop explicitly, while high-priority elements (`primary headline`, `cta`) remain intact.
+Tests severe spatial constraints. Verifies that high-priority elements (`primary headline`, `product-image`) and the CTA remain placed without overlap, while the long headline uses explicit ellipsis when the readable minimum text size cannot fit the full copy.
 
 ### Scenario 3 — Unseen Surface Generalization ($2400 \times 300$)
 

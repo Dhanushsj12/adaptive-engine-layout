@@ -129,7 +129,11 @@ button {
   border-left-color: var(--signal);
   background: var(--signal-soft);
 }
-
+.surface-item:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: -2px;
+  background: var(--signal-soft);
+}
 .surface-name {
   display: block;
   font-size: 13px;

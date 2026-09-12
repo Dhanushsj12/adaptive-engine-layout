@@ -102,7 +102,7 @@ function renderSurfaceList(): void {
 
     btn.className =
       "surface-item" + (surface.id === activeId ? " active" : "");
-
+        btn.setAttribute("aria-current", surface.id === activeId ? "true" : "false");
     btn.type = "button";
 
     const name = document.createElement("span");

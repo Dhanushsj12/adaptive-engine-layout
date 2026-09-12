@@ -388,36 +388,49 @@ This project was developed with AI assistance as a pair-programming collaborator
 All generated logic was manually audited, type-checked, and validated across browser DOM rendering and Node CLI test environments.
 
 ---
-
 # 16. Visual Proof & Verification Evidence
 
 All screenshots are stored under `screenshots/` and showcase both browser DOM previews and automated CLI stress-test logs.
 
 ### Mobile Portrait (`320 × 480`)
 
+![Mobile Portrait](screenshots/MOBILEPORTRAIT1.png)
+
 ---
 
 ### Mobile Landscape (`480 × 320`)
+
+![Mobile Landscape](screenshots/MOBILELANDSCAPE1.png)
 
 ---
 
 ### Broadcast Lower Third (`1920 × 250`)
 
+![Broadcast Lower Third](screenshots/BROADCAST1.png)
+
 ---
 
 ### Retail Kiosk (`1080 × 1080`)
 
+![Retail Kiosk](screenshots/RETAIL1.png)
+
 ---
 
-### Unseen Print-to-Digital QR Panel — demo surface (`600 × 900`)
+### Unseen Print-to-Digital QR Panel — Demo Surface (`600 × 900`)
+
+![Unseen QR Panel](screenshots/UNSEEN1.png)
 
 ---
 
 ### Impossible Tight Banner (`1200 × 80`)
 
+![Impossible Tight Banner](screenshots/IMPOSSIBLY1.png)
+
 ---
 
 ### Custom Surface
+
+![Custom Surface](screenshots/CUSTOM1.png)
 
 ---
 
@@ -425,6 +438,26 @@ All screenshots are stored under `screenshots/` and showcase both browser DOM pr
 
 The logs below include the second, independent unseen-surface proof (`2400 × 300`), defined only in `scripts/stress-test.ts`.
 
+### Stress Test 1 — Required Surface Profiles
+
+![Stress Test 1](screenshots/stresstest1.png)
+
 ---
+
+### Stress Test 2 — Constrained Degradation & Tight Banner
+
+![Stress Test 2](screenshots/stresstest2.png)
+
+---
+
+### Stress Test 3 — Unseen Surface & Equal-Priority Tiebreaking
+
+![Stress Test 3](screenshots/stresstest3.png)
+
+---
+
+### TypeScript Type Check
+
+![Type Check](screenshots/typecheck.png)
 
 ---

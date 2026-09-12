@@ -18,6 +18,15 @@ if (surface === "kiosk") { ... }
 Instead, the resolver derives a composition strategy from the **geometry and aspect ratio of the surface**, solves element spatial constraints, protects higher-priority content, and progressively degrades lower-priority elements when space becomes constrained.
 
 ---
+## Live Demo
+
+The adaptive layout engine is deployed online and can be tested directly in the browser.
+
+**Live Demo:** https://adaptive-engine-layout.vercel.app/
+
+The demo allows the same advertisement specification to be resolved across different surface geometries. Use the surface selector to switch between the available profiles and observe how the resolver changes element placement, sizing, repositioning, and degradation based on the constraints.
+
+The deployed demo is provided for interactive verification, while the repository contains the source code, architecture documentation, stress-test script, and visual evidence required to inspect how the resolver works.
 
 # 1. Project Overview & Architecture
 
@@ -392,17 +401,13 @@ All screenshots are stored under `screenshots/` and showcase both browser DOM pr
 
 ![Retail Kiosk](screenshots/retailkiosk.png)
 
----
 
-### Print-to-Digital QR Panel (`600 × 900`)
-
-![Print-to-Digital QR Panel](screenshots/qrpanel.png)
 
 ---
 
-### Unseen Surface (`2400 × 300`)
+### Unseen print to digital QR panel Surface (`2400 × 300`)
 
-![Unseen Surface](screenshots/unseen.png)
+![Unseen print to digital QR Surface](screenshots/unseen.png)
 
 ---
 

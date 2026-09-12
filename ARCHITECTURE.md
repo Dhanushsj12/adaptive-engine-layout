@@ -1170,7 +1170,7 @@ The engine therefore provides:
 * Non-browser adversarial stress testing
 
 
-Paste this:
+
 
 ```markdown
 ---

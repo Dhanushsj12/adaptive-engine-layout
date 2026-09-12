@@ -53,6 +53,7 @@ const productAd: AdSpec = defineAd({
       role: "hero",
       priority: 1,
       aspectRatio: 1,
+      content: "/image.png",
     }),
 
     button({
@@ -74,6 +75,7 @@ const productAd: AdSpec = defineAd({
       role: "branding",
       priority: 3,
       aspectRatio: 1,
+      content: "/image.png",
     }),
   ],
 });
@@ -200,6 +202,7 @@ const tightSpec: AdSpec = defineAd({
       role: "hero",
       priority: 1,
       aspectRatio: 1,
+      content: "/image.png",
     }),
 
     image({
@@ -207,6 +210,7 @@ const tightSpec: AdSpec = defineAd({
       role: "hero",
       priority: 1,
       aspectRatio: 1,
+      content: "/image.png",
     }),
   ],
 });

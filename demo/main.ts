@@ -28,11 +28,12 @@ const productAd = defineAd({
     }),
 
     image({
-      id: "product-image",
-      role: "hero",
-      priority: 1,
-      aspectRatio: 1,
-    }),
+  id: "product-image",
+  role: "hero",
+  priority: 1,
+  aspectRatio: 1,
+  content: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&auto=format&fit=crop&q=80",
+}),
 
     button({
       id: "cta",
@@ -49,11 +50,12 @@ const productAd = defineAd({
     }),
 
     image({
-      id: "logo",
-      role: "branding",
-      priority: 3,
-      aspectRatio: 1,
-    }),
+  id: "logo",
+  role: "branding",
+  priority: 3,
+  aspectRatio: 1,
+  content: "https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?w=200&auto=format&fit=crop&q=80",
+}),
   ],
 });
 

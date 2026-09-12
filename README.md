@@ -371,30 +371,49 @@ All generated logic was manually audited, type-checked, and validated across bro
 All screenshots are stored under `screenshots/` and showcase both browser DOM previews and automated CLI stress-test logs:
 
 ### Mobile Portrait ($320 \times 480$)
+![Mobile Portrait](screenshots/mobileportrait)
 
 ---
 
 ### Mobile Landscape ($480 \times 320$)
+![Mobile Landscape](screenshots/mobilelandscape)
 
 ---
 
 ### Broadcast Lower Third ($1920 \times 250$)
+![Broadcast Lower Third](screenshots/broadcastlowerthird)
 
 ---
 
 ### Retail Kiosk ($1080 \times 1080$)
+![Retail Kiosk](screenshots/retailkiosk)
 
 ---
 
 ### Unseen Surface ($600 \times 900$)
+![Unseen Surface](screenshots/unseen)
 
 ---
 
 ### Impossible Tight Banner ($1200 \times 80$)
+![Impossible Tight Banner](screenshots/impossibly)
 
 ---
 
 ### Automated CLI Stress-Test Logs
+
+#### Scenario 1: Required Surface Profiles
+![Stress Test 1](screenshots/stresstest1)
+
+---
+
+#### Scenario 2: Constrained Degradation & Tight Banner
+![Stress Test 2](screenshots/stresstest2)
+
+---
+
+#### Scenario 3 & 4: Unseen Surface & Equal-Priority Tiebreaking
+![Stress Test 3](screenshots/stresstest3)
 
 ```
 

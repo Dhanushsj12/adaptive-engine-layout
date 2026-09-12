@@ -430,7 +430,7 @@ All screenshots are stored under `screenshots/` and showcase both browser DOM pr
 
 ### Custom Surface
 
-![Custom Surface](screenshots/CUSTOM1.png)
+![Custom Surface](screenshots/CUSTOM.png)
 
 ---
 

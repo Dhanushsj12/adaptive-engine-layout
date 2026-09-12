@@ -160,7 +160,12 @@ export function fitTextToFixedBox(
 
   for (let fontSize = preferredFontSize; fontSize >= minFontSize; fontSize -= 1) {
     if (longestWordOverflows(text, fontSize, contentWidth, fontFamily)) continue;
-    const lineCount = Math.min(maxLines, estimateLineCount(text, fontSize, contentWidth, fontFamily));
+    
+    const lineCount = estimateLineCount(text, fontSize, contentWidth, fontFamily);
+    
+    // Do not clamp lineCount; reject font sizes that force more lines than maxLines allows
+    if (lineCount > maxLines) continue;
+
     const needed = lineCount * lineHeightFor(fontSize);
     if (needed <= height + 0.5) {
       return { fontSize, lineCount, requiredHeight: needed };

@@ -5,15 +5,9 @@ A constraint-based layout resolver that takes **one advertisement specification*
 
 The engine does **not** contain surface-specific layout branches such as:
 
-```ts
-if (surface === "mobile") {
-  ...
-}
+## Live Demo
 
-if (surface === "kiosk") {
-  ...
-}
-````
+[Adaptive Layout Engine — Proof Sheet](https://adaptive-engine-layout.vercel.app/)
 
 Instead, the resolver selects a composition strategy from the **geometry and aspect ratio of the surface**, resolves element constraints, protects higher-priority content, and progressively degrades lower-priority elements when space becomes constrained.
 

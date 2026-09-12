@@ -398,10 +398,7 @@ The stress test additionally verifies:
 
 ## Time Spent
 
-Approximately **3–5 days**, including implementation, debugging, stress testing, documentation, deployment, and visual verification.
+Approximately **3days**, including implementation, debugging, stress testing, documentation, deployment, and visual verification.
 
-## AI Tool Disclosure
-
-This project was built with Claude as a pair-programming collaborator, including assistance with the resolver algorithm design, composition templates, implementation, debugging, and demo development.
 
 Every stress-test scenario documented in this repository was executed against the actual resolver during development. The reported coordinates and degradation states are therefore based on real resolver output rather than hypothetical examples.

@@ -439,7 +439,6 @@ All screenshots are stored under `screenshots/` and showcase both browser DOM pr
 
 
 
-![Stress Test 4](screenshots/stresstest4.png)
 
 ```
 

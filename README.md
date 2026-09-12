@@ -1,8 +1,3 @@
-Here is the **100% complete, fully detailed, continuous `README.md` file**.
-
-Every image marker has been preserved at all required locations, and the AI Disclosure section has been kept as requested. You can copy and paste this text directly into your GitHub repository’s `README.md` file.
-
-```markdown
 # Adaptive Layout Engine for Multi-Surface Ads
 
 A constraint-based layout engine that receives **one advertisement specification** and automatically adapts it across fundamentally different display surfaces without per-surface hardcoded layouts or pure CSS media-query hacks.
@@ -12,12 +7,12 @@ The engine does **not** contain surface-specific layout branches such as:
 ```ts
 if (surface === "mobile") { ... }
 if (surface === "kiosk") { ... }
-
 ```
 
 Instead, the resolver derives a composition strategy from the **geometry and aspect ratio of the surface**, solves element spatial constraints, protects higher-priority content, and progressively degrades lower-priority elements when space becomes constrained.
 
 ---
+
 ## Live Demo
 
 The adaptive layout engine is deployed online and can be tested directly in the browser.
@@ -27,6 +22,14 @@ The adaptive layout engine is deployed online and can be tested directly in the 
 The demo allows the same advertisement specification to be resolved across different surface geometries. Use the surface selector to switch between the available profiles and observe how the resolver changes element placement, sizing, repositioning, and degradation based on the constraints.
 
 The deployed demo is provided for interactive verification, while the repository contains the source code, architecture documentation, stress-test script, and visual evidence required to inspect how the resolver works.
+
+---
+
+## Time Spent
+
+Approximately 4–5 days, spent primarily on: designing the priority-ordered constraint resolver and its shrink/reposition/drop degradation logic, the text-measurement and font-sizing pipeline (including fixing real rendering bugs found through live browser testing rather than assumed correct), and writing the architecture documentation and stress-test evidence.
+
+---
 
 # 1. Project Overview & Architecture
 
@@ -54,7 +57,6 @@ RESOLVED LAYOUT METRICS
        │
        ▼
 DOM RENDERING
-
 ```
 
 ---
@@ -74,8 +76,9 @@ const sampleAdSpec = defineAd({
     image({ id: "logo", role: "branding", priority: 3, aspectRatio: 1 }),
   ],
 });
-
 ```
+
+The product image element renders a real product photo (`public/image.png`), not just a placeholder color block, so the demo reflects a realistic ad rather than a bare wireframe.
 
 The same specification is resolved against diverse surface geometries:
 
@@ -84,7 +87,10 @@ The same specification is resolved against diverse surface geometries:
 * **Broadcast Lower Third** ($1920 \times 250$)
 * **Retail Kiosk** ($1080 \times 1080$)
 * **Impossible Tight Banner** ($1200 \times 80$)
-* **Print-to-Digital QR Panel / Unseen Surfaces** ($600 \times 900$, $2400 \times 300$)
+* **Unseen surface #1 — interactive demo** ($600 \times 900$, "Print-to-Digital QR Panel", defined only in `demo/main.ts`)
+* **Unseen surface #2 — CLI stress test** ($2400 \times 300$, defined only in `scripts/stress-test.ts`)
+
+The two "unseen" surfaces above are intentionally separate and independently prove generalization: neither is referenced anywhere inside `composition-strategies.ts` or `resolver.ts`, so each demonstrates — in a different execution context (browser demo vs. headless CLI) — that the resolver classifies and resolves a surface it has never seen from its geometry alone.
 
 ---
 
@@ -97,7 +103,8 @@ The same specification is resolved against diverse surface geometries:
 | **Broadcast Lower Third** | $1920 \times 250$ | Wide Banner | Horizontal row composition; enforces far-viewing text constraints ($32\text{px}+$ min size). |
 | **Retail Kiosk** | $1080 \times 1080$ | Square | High-impact centered composition; enforces large touch targets ($60\text{px}+$ min size). |
 | **Impossible Tight Banner** | $1200 \times 80$ | Stress Test | Extreme spatial constraint; branding/secondary elements degrade gracefully. |
-| **Unseen QR Panel** | $600 \times 900$ | Generative | Resolved dynamically from geometry without hardcoded configuration. |
+| **Unseen QR Panel (demo)** | $600 \times 900$ | Portrait | Resolved dynamically from geometry without hardcoded configuration. |
+| **Unseen Surface (CLI script)** | $2400 \times 300$ | Wide Banner | A second, independent unseen surface used only in `scripts/stress-test.ts`. |
 
 ---
 
@@ -130,7 +137,6 @@ Ad Specification + Surface Constraints
                  │
                  ▼
             DOM Renderer
-
 ```
 
 1. **Orientation Strategy Routing**: Determines layout composition based on content-box aspect ratios rather than string identifiers.
@@ -139,8 +145,6 @@ Ad Specification + Surface Constraints
 4. **Progressive Degradation**: Executes a strict step-down sequence when space is constrained:
 
 $$\text{Ideal Placement} \longrightarrow \text{Shrink Font/Scale} \longrightarrow \text{Reposition (Free-Space Search)} \longrightarrow \text{Drop Element}$$
-
-
 
 ---
 
@@ -165,7 +169,6 @@ Repositioned (Free-Space Search)
      │
      ▼
 Dropped Element
-
 ```
 
 The resolver reports these explicit decisions in its output rather than allowing silent bounding box overlaps or browser text clipping.
@@ -177,7 +180,9 @@ The resolver reports these explicit decisions in its output rather than allowing
 Text is not treated as an arbitrary static box:
 
 * **Canvas 2D Font Measurement**: Uses exact text metrics (`src/text-measure.ts`) in browser environments to calculate font dimensions and line wrapping.
+* **Word-Aware Wrap Simulation**: Line-count estimation simulates real greedy word-wrapping rather than a naive total-width division, and explicitly rejects any font size where a single word would be too wide for its box — preventing the browser from ever being forced to break a word mid-letter.
 * **CLI/Node Fallback**: Uses a character-count heuristic fallback in headless CLI test environments (`scripts/stress-test.ts`) so algorithms can be validated without a browser instance.
+* **Shared Font Stack**: Measurement and rendering both import the same `RENDER_FONT_FAMILY` constant, so the font used to measure text and the font actually rendered can never silently drift apart.
 
 ---
 
@@ -187,7 +192,7 @@ The spatial utilities in `src/geometry.ts` handle core bounding box operations:
 
 * Bounding Box Intersections
 * Safe Area Inset Clipping
-* **Free-Space Allocation**: Calculates open surface regions using a spatial discretization matrix when elements cannot maintain ideal placement coordinates.
+* **Free-Space Allocation**: Calculates open surface regions using a spatial discretization matrix when elements cannot maintain ideal placement coordinates, sized to as much of the found space as the element can use (capped at its own ideal size, floored at its hard minimum).
 
 ---
 
@@ -197,29 +202,32 @@ The spatial utilities in `src/geometry.ts` handle core bounding box operations:
 adaptive-layout-engine/
 │
 ├── src/
-│   ├── types.ts                   # Core interfaces and runtime contracts
-│   ├── spec.ts                    # Ad specification builder & validators
-│   ├── surfaces.ts                # Surface profile configurations
-│   ├── composition-strategies.ts # Aspect-ratio composition strategies
-│   ├── resolver.ts                # Priority-ordered constraint resolver engine
-│   ├── geometry.ts                # Spatial 2D box math & free-space search
-│   ├── text-measure.ts            # Canvas 2D & fallback text measurement
-│   ├── render-dom.ts              # Pure DOM renderer consuming resolved offsets
-│   └── App.tsx                    # Interactive demo UI wrapper
+│   ├── types.ts                    # Core interfaces and runtime contracts
+│   ├── spec.ts                     # Ad specification builder & validators
+│   ├── surfaces.ts                 # Surface profile configurations
+│   ├── composition-strategies.ts   # Aspect-ratio composition strategies
+│   ├── resolver.ts                 # Priority-ordered constraint resolver engine
+│   ├── geometry.ts                 # Spatial 2D box math & free-space search
+│   ├── text-measure.ts             # Canvas 2D & fallback text measurement
+│   └── render-dom.ts               # Pure DOM renderer consuming resolved offsets
+│
+├── demo/
+│   ├── index.html                  # Demo shell
+│   ├── main.ts                     # Surface picker wired to resolver + renderer
+│   └── style.css                   # Demo visual design
 │
 ├── scripts/
-│   └── stress-test.ts            # CLI adversarial test suite
+│   └── stress-test.ts              # CLI adversarial test suite
 │
 ├── public/
-│   └── image.png                  # Local product imagery assets
+│   └── image.png                   # Product imagery asset
 │
-├── screenshots/                   # Visual proof and execution evidence
+├── screenshots/                    # Visual proof and execution evidence
 ├── ARCHITECTURE.md
 ├── README.md
 ├── package.json
 ├── tsconfig.json
 └── vite.config.ts
-
 ```
 
 ---
@@ -227,39 +235,30 @@ adaptive-layout-engine/
 # 9. Key File Responsibilities
 
 ### `src/types.ts`
-
 Defines core contracts for specs, elements, surface constraints, degradation states, and resolved pixel layout payloads.
 
 ### `src/spec.ts`
-
 Implements `defineAd()` validation routines to check for duplicate IDs, missing content, or invalid aspect ratios at compile/runtime.
 
 ### `src/surfaces.ts`
-
 Defines physical surface profile constraints (e.g., `minTapTarget`, `minTextSize`, `viewingDistance`).
 
 ### `src/composition-strategies.ts`
-
 Provides initial layout compositions derived purely from surface geometry classes (`portrait`, `landscape`, `wide-banner`, `square`).
 
 ### `src/resolver.ts`
-
 Contains the core constraint solver and degradation state machine.
 
 ### `src/geometry.ts`
-
 Implements 2D rectangle mathematics, box collisions, and candidate region searches.
 
 ### `src/text-measure.ts`
-
 Provides text measurement utilities to inform font sizing and wrapping rules.
 
 ### `src/render-dom.ts`
-
 Translates solved bounding metrics (`x`, `y`, `width`, `height`) directly into HTML elements without performing layout re-calculations.
 
 ### `scripts/stress-test.ts`
-
 Executes automated, headless validation scenarios across normal, adversarial, and tiebreak conditions.
 
 ---
@@ -281,7 +280,6 @@ Core interfaces in `src/types.ts` prevent invalid specifications and surface con
 
 ```bash
 npm install
-
 ```
 
 ### Development Server
@@ -290,7 +288,6 @@ Start the local interactive preview app with live surface switching:
 
 ```bash
 npm run dev
-
 ```
 
 ### Type Checking
@@ -299,7 +296,6 @@ Run strict TypeScript validation:
 
 ```bash
 npm run typecheck
-
 ```
 
 ### Automated Stress Test Suite
@@ -308,7 +304,6 @@ Run the framework-agnostic resolver verification script:
 
 ```bash
 npm run stress-test
-
 ```
 
 ### Production Build
@@ -317,7 +312,6 @@ Compile optimized production assets:
 
 ```bash
 npm run build
-
 ```
 
 ---
@@ -336,7 +330,7 @@ Tests severe spatial constraints. Verifies that low-priority elements (`logo`, `
 
 ### Scenario 3 — Unseen Surface Generalization ($2400 \times 300$)
 
-Passes an unlisted surface profile into the resolver to prove the engine uses geometric strategy routing rather than string matching.
+Passes an unlisted surface profile — defined only inside this script, never in `composition-strategies.ts` or `resolver.ts` — into the resolver to prove the engine uses geometric strategy routing rather than string matching. This is distinct from the interactive demo's own unseen `600 × 900` QR panel surface (see Section 16).
 
 ### Scenario 4 — Equal-Priority Conflict Tiebreaking
 
@@ -358,7 +352,7 @@ Instantiates two elements with identical priorities and ideal spatial overlaps t
 
 * **Single-Pass Priority Greedy Search**: The engine uses a greedy placement pass without full combinatorial backtracking. Higher-priority items will never shift position to save lower-priority items.
 * **Grid-Based Free Space Search**: Repositioning uses a $40 \times 40$ spatial discretization matrix for fast, deterministic open-space calculation, which may slightly round optimal bounding boxes.
-* **Text Wrapping**: Text line-wrapping is modeled through character and font-size metric heuristics rather than native CSS browser reflow engines.
+* **Text Wrapping**: Text line-wrapping is modeled through character and font-size metric heuristics (with real canvas measurement in the browser) rather than native CSS browser reflow engines.
 
 ---
 
@@ -401,11 +395,9 @@ All screenshots are stored under `screenshots/` and showcase both browser DOM pr
 
 ![Retail Kiosk](screenshots/retailkiosk.png)
 
-
-
 ---
 
-### Unseen print to digital QR panel Surface (`2400 × 300`)
+### Unseen Print-to-Digital QR Panel — demo surface (`600 × 900`)
 
 ![Unseen print to digital QR Surface](screenshots/unseen.png)
 
@@ -419,27 +411,14 @@ All screenshots are stored under `screenshots/` and showcase both browser DOM pr
 
 ## Automated CLI Stress-Test Logs
 
-
+The logs below include the second, independent unseen-surface proof (`2400 × 300`), defined only in `scripts/stress-test.ts`.
 
 ![Stress Test 1](screenshots/stresstest1.png)
 
 ---
 
-
-
 ![Stress Test 2](screenshots/stresstest2.png)
 
 ---
 
-
-
 ![Stress Test 3](screenshots/stresstest3.png)
-
----
-
-
-
-
-```
-
-```

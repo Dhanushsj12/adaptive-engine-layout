@@ -1006,6 +1006,9 @@ The demo currently switches between surfaces without animation or transition eff
 Animation is outside the core layout-resolution problem.
 
 ---
+## Time Spent
+
+Approximately 3–5 days, including implementation, debugging, stress testing, documentation, and visual verification.
 
 # 29. Why This Is More Than a Responsive UI
 

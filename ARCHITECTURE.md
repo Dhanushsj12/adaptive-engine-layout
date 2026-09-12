@@ -1,448 +1,415 @@
 # Adaptive Layout Engine — Architecture
 
-## 1. Overview
+## 1. System Goal
 
-The Adaptive Layout Engine is a constraint-based layout resolver for rendering a single advertisement specification across multiple display surfaces.
+The Adaptive Layout Engine takes **one advertisement specification** and resolves it into a concrete layout for different output surfaces.
 
-The core design goal is:
+The important architectural constraint is:
 
-> Define the advertisement once, then resolve it automatically for any surface without writing surface-specific positioning logic.
+> The resolver must not know the identity of a surface.
 
-The system separates:
-
-1. Advertisement content and intent
-2. Surface constraints
-3. Composition strategy
-4. Geometry calculations
-5. Constraint resolution
-6. DOM rendering
-
-This separation allows the same advertisement specification to be resolved against very different surfaces such as:
-
-- Mobile Portrait — `320 × 480`
-- Mobile Landscape — `480 × 320`
-- Broadcast Lower Third — `1920 × 250`
-- Retail Kiosk — `1080 × 1080`
-- Unseen Surface — defined only by the stress test
-- Impossibly Tight Banner — `1200 × 80`
-
-The resolver does not identify surfaces by name and then choose a hardcoded layout.
-
-Instead, it uses the surface's geometry and available constraints to select an appropriate composition strategy.
-
----
-
-# 2. Design Principles
-
-The implementation follows five primary principles.
-
-## 2.1 One Advertisement Specification
-
-The advertisement is defined once.
-
-The sample advertisement contains:
-
-- Product image
-- Headline
-- Price
-- Call-to-action button
-- Branding/logo
-
-Example:
+There is no logic such as:
 
 ```ts
-const sampleAdSpec = defineAd({
-  id: "airpods-pro-promo",
-  elements: [
-    ...
-  ],
-});
-````
-
-The same specification is passed to the resolver for every surface.
-
-There is no separate advertisement definition for mobile, broadcast, kiosk, or the stress-test surface.
-
----
-
-## 2.2 Surface Independence
-
-A surface describes its physical constraints rather than prescribing exact element positions.
-
-A surface provides information such as:
-
-* Width
-* Height
-* Safe-area insets
-* Viewing characteristics
-* Surface profile
-
-The resolver receives this information and calculates the final layout.
-
-The implementation intentionally avoids logic such as:
-
-```ts
-if (surface.id === "mobile") {
-  ...
-}
-
-if (surface.id === "kiosk") {
+if (surface === "mobilePortrait") {
   ...
 }
 ```
 
-This is important because the engine must also work with surfaces that were not known when the resolver was written.
+Instead, the resolver receives:
+
+* advertisement content and priorities
+* surface dimensions and constraints
+* reusable composition strategies
+
+It then produces a `ResolvedLayout`.
+
+The same ad can therefore be rendered as:
+
+* Mobile Portrait
+* Mobile Landscape
+* Broadcast Lower Third
+* Retail Kiosk
+* an unseen surface with previously unknown dimensions
+* an intentionally impossible tight banner
 
 ---
 
-# 3. High-Level Architecture
-
-The system can be understood as the following pipeline:
+# 2. High-Level Architecture
 
 ```text
-                 Advertisement Specification
-                           |
-                           v
-                    +--------------+
-                    |   spec.ts    |
-                    | Validation   |
-                    +--------------+
-                           |
-                           v
-                    +--------------+
-                    |  surfaces.ts |
-                    | Constraints  |
-                    +--------------+
-                           |
-                           v
-              +--------------------------+
-              | composition-strategies   |
-              | Orientation-based        |
-              | composition templates    |
-              +--------------------------+
-                           |
-                           v
-                    +--------------+
-                    |  resolver.ts |
-                    | Constraint   |
-                    | resolution   |
-                    +--------------+
-                       /         \
-                      /           \
-                     v             v
-              geometry.ts     text-measure.ts
-              rectangle       text sizing
-              calculations    measurements
-                      \           /
-                       \         /
-                        v       v
-                    ResolvedLayout
-                           |
-                           v
-                    +--------------+
-                    | render-dom.ts|
-                    | DOM renderer |
-                    +--------------+
-                           |
-                           v
-                       Browser UI
+                    ┌─────────────────────┐
+                    │     AdSpec           │
+                    │                     │
+                    │ elements             │
+                    │ roles                │
+                    │ priorities           │
+                    │ content              │
+                    │ aspect ratios        │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │      Resolver       │
+                    │                     │
+                    │ strategy selection  │
+                    │ ideal geometry      │
+                    │ priority ordering   │
+                    │ collision handling  │
+                    │ degradation          │
+                    └──────────┬──────────┘
+                               │
+                 ┌─────────────┴─────────────┐
+                 │                           │
+                 ▼                           ▼
+       ┌─────────────────┐         ┌──────────────────┐
+       │ Surface         │         │ Geometry         │
+       │ Constraints     │         │ Utilities        │
+       │                 │         │                  │
+       │ width           │         │ intersection     │
+       │ height          │         │ free rectangles  │
+       │ orientation     │         │ containment      │
+       │ viewing distance│         │ overlap          │
+       └─────────────────┘         └──────────────────┘
+                 │
+                 └──────────────┬──────────────┘
+                                ▼
+                     ┌─────────────────────┐
+                     │  ResolvedLayout     │
+                     │                     │
+                     │ x / y               │
+                     │ width / height      │
+                     │ visibility          │
+                     │ degradation         │
+                     │ font size           │
+                     └──────────┬──────────┘
+                                │
+                                ▼
+                     ┌─────────────────────┐
+                     │   DOM Renderer      │
+                     │                     │
+                     │   render-dom.ts     │
+                     └─────────────────────┘
 ```
 
-The important boundary is between the resolver and renderer.
+---
 
-The resolver decides:
+# 3. `src/types.ts`
 
-* Whether an element is visible
-* Position
-* Width
-* Height
-* Font size
-* Degradation state
+This file defines the shared domain model.
 
-The renderer simply paints that resolved result.
+The main types are:
+
+* `AdElement`
+* `AdSpec`
+* `SurfaceSpec`
+* `ElementRole`
+* `ResolvedElement`
+* `ResolvedLayout`
+* degradation states
+
+The type system separates:
+
+```text
+What the advertisement wants
+```
+
+from:
+
+```text
+What the resolver was able to produce
+```
+
+That distinction is important.
+
+For example, an ad element may request a large headline, while the resolved element may receive:
+
+```text
+smaller font size
+different position
+smaller rectangle
+or visibility = false
+```
+
+The resolver therefore produces a new resolved representation instead of mutating the original advertisement specification.
 
 ---
 
-# 4. File Responsibilities
-
-## `src/types.ts`
-
-Contains the shared TypeScript types used throughout the engine.
-
-Important concepts include:
-
-* Advertisement elements
-* Element roles
-* Surface definitions
-* Rectangles
-* Resolved elements
-* Resolved layouts
-* Degradation states
-
-This file defines the contracts between the different parts of the system.
-
-Keeping these contracts centralized prevents the resolver, renderer, and specification layer from developing incompatible assumptions.
-
----
-
-# 5. Advertisement Specification
+# 4. Advertisement Specification
 
 ## `src/spec.ts`
 
-`spec.ts` contains the advertisement definition and validation logic.
+`defineAd()` is responsible for validating an advertisement specification.
 
-The main function is:
+Validation happens before layout resolution.
 
-```ts
-defineAd()
-```
-
-Its purpose is to validate the advertisement before it reaches the resolver.
-
-Validation includes:
+The validation checks include:
 
 ### Duplicate IDs
 
-Every element must have a unique ID.
-
-For example:
+Every element must have a unique identifier.
 
 ```text
-product-image
 headline
+product-image
 price
 cta
 logo
 ```
 
-Two elements cannot share the same ID.
+Two elements cannot use the same ID.
 
----
+### Valid roles
 
-### Valid Roles
-
-The engine supports the following roles:
+The supported roles are:
 
 ```text
-primary
 hero
-action
+primary
 secondary
+action
 branding
 ```
 
-An invalid role causes the specification to fail immediately.
+An unknown role is rejected immediately.
 
----
-
-### Priority Validation
+### Priority
 
 Every element must have a positive priority.
 
-The priority establishes the degradation order.
+The priority determines which elements receive space first during resolution.
 
-A lower numeric value means higher priority.
+Lower numeric priority means higher importance.
 
 For example:
 
 ```text
 1 = highest priority
 2 = next priority
-3 = next priority
-...
+3 = lower priority
 ```
 
-This allows the resolver to protect important content when a surface becomes constrained.
+### Image aspect ratio
+
+If an image specifies an aspect ratio, it must be positive.
+
+### Text content
+
+Text and button elements must contain content because the resolver needs to measure the content before deciding whether a rectangle is large enough.
 
 ---
 
-### Image Validation
+# 5. Convenience Constructors
 
-Images may optionally specify an aspect ratio.
+`spec.ts` also provides:
 
-The aspect ratio must be positive.
+```ts
+text(...)
+image(...)
+button(...)
+```
+
+These are convenience helpers around the underlying `AdElement` representation.
+
+They keep advertisement definitions concise while still passing through the same validation system.
 
 ---
 
-### Text Validation
+# 6. `src/surfaces.ts`
 
-Text and button elements must contain content.
+This file defines surface constraints.
 
-This is important because text-aware resolution requires the resolver to know what text it needs to fit.
-
----
-
-# 6. Element Roles
-
-Roles describe the semantic importance of an element.
-
-The current roles are:
-
-| Role        | Purpose                              |
-| ----------- | ------------------------------------ |
-| `hero`      | Main visual/product content          |
-| `primary`   | Main headline or important text      |
-| `action`    | Interactive call-to-action           |
-| `secondary` | Supporting information such as price |
-| `branding`  | Logo or brand identity               |
-
-Roles are intentionally semantic.
-
-The specification does not say:
+A surface contains physical or logical constraints such as:
 
 ```text
-put headline at x=200, y=100
+width
+height
+orientation
+viewing distance
+minimum text size
+padding
 ```
 
-Instead it says:
+The important architectural decision is that surfaces describe **constraints**, not hard-coded element coordinates.
 
-```text
-this is a primary element
-```
+The resolver should be able to receive a completely new width and height and still attempt to produce a valid arrangement.
 
-The composition strategy determines where that type of content belongs.
-
----
-
-# 7. Surface Definitions
-
-## `src/surfaces.ts`
-
-This module contains surface construction and the required surface profiles.
-
-The important concept is that surfaces describe constraints rather than final element positions.
-
-The required profiles include:
+The project includes four required surface profiles:
 
 ```text
 Mobile Portrait
-320 × 480
-
 Mobile Landscape
-480 × 320
-
 Broadcast Lower Third
-1920 × 250
-
 Retail Kiosk
-1080 × 1080
 ```
 
-Additional surfaces are used to demonstrate robustness:
+The project also exercises:
 
 ```text
-Impossibly Tight Banner
 1200 × 80
 ```
 
-and an unseen surface defined directly inside the stress-test script.
+as an intentionally impossible banner.
 
-The unseen surface is particularly important because it demonstrates that the resolver is not simply matching known surface IDs.
+A fifth unseen surface is created only in the stress-test script.
 
 ---
 
-# 8. Composition Strategies
+# 7. Composition Strategies
 
 ## `src/composition-strategies.ts`
 
-Composition strategies describe how semantic roles are arranged for different geometric conditions.
+Composition strategies describe preferred arrangements for different geometric conditions.
 
-The strategies are orientation/layout patterns rather than individual surface implementations.
+They are not individual surface implementations.
 
-For example, a wide surface may naturally use a horizontal arrangement:
-
-```text
-[product] [headline] [price] [CTA] [logo]
-```
-
-A tall surface may instead use a stacked arrangement:
+The strategy system is based on properties such as:
 
 ```text
-[product]
-
-[headline]
-
-[CTA]
-
-[price]
-
-[logo]
+orientation
+aspect ratio
+available dimensions
 ```
 
-The important distinction is that the strategy is selected based on geometry.
+rather than surface identity.
 
-The resolver does not contain logic such as:
+Conceptually:
 
-```ts
-if (surface.name === "Mobile Portrait")
+```text
+portrait
+    ↓
+portrait-oriented composition
+
+wide landscape
+    ↓
+horizontal composition
+
+square / near-square
+    ↓
+stacked or balanced composition
 ```
 
-This preserves generalization.
+This allows the resolver to generalize to surfaces that were not explicitly listed in the strategy file.
+
+The strategy supplies preferred regions.
+
+The resolver remains responsible for deciding whether those regions can actually fit.
 
 ---
 
-# 9. Geometry Engine
+# 8. `src/geometry.ts`
 
-## `src/geometry.ts`
+This module contains rectangle and spatial utilities.
 
-The geometry module contains reusable rectangle calculations.
+Important operations include:
 
-Its responsibilities include:
+* rectangle intersection
+* overlap detection
+* containment
+* rectangle clamping
+* free-space search
+* largest available free rectangle
 
-* Rectangle intersection
-* Bounds checking
-* Free-space calculations
-* Finding available rectangles
-* Position calculations
+The geometry layer is deliberately independent of advertisement content.
 
-One important operation is:
+That means it does not know:
 
 ```text
-findLargestFreeRect
+what a headline means
+what a button means
+what a logo means
 ```
 
-This is used when an element cannot occupy its ideal position because another element has already claimed that space.
+It only understands rectangles and spatial relationships.
 
-Instead of immediately dropping the element, the resolver searches for available space.
-
-This enables the `repositioned` degradation state.
+This keeps the geometry reusable by the resolver.
 
 ---
 
-# 10. Text Measurement
+# 9. Free-Space Search
 
-## `src/text-measure.ts`
+The repositioning stage uses:
 
-Text cannot be treated as an arbitrary rectangle because text dimensions depend on:
+```text
+findLargestFreeRect(...)
+```
 
-* Font
-* Font size
-* Content
-* Available width
-* Line height
+to search for available space after higher-priority elements have already been placed.
+
+The implementation uses a fixed:
+
+```text
+40 × 40
+```
+
+grid.
+
+This provides:
+
+* deterministic behavior
+* predictable runtime
+* simple implementation
+* sufficiently good approximation for the demo
+
+The result is not guaranteed to be the mathematically perfect largest rectangle.
+
+It can occasionally under-report the true available region by a few percent.
+
+---
+
+# 10. `src/text-measure.ts`
+
+Text measurement is an important part of the resolver.
+
+The engine should not simply assume that text fits because the rectangle has sufficient geometric dimensions.
 
 The browser implementation uses Canvas 2D text measurement.
 
-This allows the resolver to make text-aware decisions.
+This allows the resolver to estimate:
 
-In environments where browser measurement is unavailable, the module provides a documented heuristic fallback.
+```text
+text width
+font size
+line height
+number of lines
+```
 
-This is particularly important for the stress-test script because it executes without requiring the browser UI.
+before committing an element to a rectangle.
+
+The Node/stress-test environment uses a documented heuristic fallback because browser Canvas APIs are not necessarily available there.
+
+This makes the resolver executable both:
+
+```text
+inside the browser
+```
+
+and:
+
+```text
+from scripts/stress-test.ts
+```
 
 ---
 
-# 11. Constraint Resolver
+# 11. Resolver
 
 ## `src/resolver.ts`
 
 This is the core of the project.
 
-The resolver receives:
+The resolver combines:
 
 ```text
 AdSpec
 +
-Surface
+SurfaceSpec
++
+CompositionStrategy
++
+Geometry utilities
++
+Text measurement
 ```
 
 and produces:
@@ -451,725 +418,768 @@ and produces:
 ResolvedLayout
 ```
 
-A resolved element contains calculated geometry and its degradation state.
+The resolver does not render anything.
 
-Conceptually:
-
-```text
-AdSpec
-   +
-Surface
-   |
-   v
-Strategy selection
-   |
-   v
-Ideal rectangles
-   |
-   v
-Fit checks
-   |
-   v
-Conflict resolution
-   |
-   v
-Degradation
-   |
-   v
-ResolvedLayout
-```
-
----
-
-# 12. Resolution Process
-
-The resolver follows a priority-aware process.
-
-## Step 1 — Select a composition strategy
-
-The surface geometry is analyzed.
-
-The resolver selects an appropriate strategy based on characteristics such as orientation and available dimensions.
-
-The surface identity itself is not used as a layout switch.
-
----
-
-## Step 2 — Generate ideal rectangles
-
-Each element receives an ideal rectangle from the selected composition strategy.
-
-An ideal rectangle describes the preferred:
+It only decides:
 
 ```text
-x
-y
-width
-height
+where an element goes
+how large it is
+whether it remains visible
+whether it was degraded
 ```
 
-for that element.
+This separation makes the algorithm testable without requiring a browser.
 
 ---
 
-## Step 3 — Process elements according to priority
+# 12. Resolution Pipeline
 
-Elements are resolved according to their priority.
-
-Higher-priority elements are protected before lower-priority elements.
-
-This is necessary because constrained surfaces may not have enough room for every element at its ideal size.
-
----
-
-## Step 4 — Check whether the ideal rectangle fits
-
-The resolver checks:
-
-* Surface bounds
-* Safe-area constraints
-* Existing occupied rectangles
-* Minimum dimensions
-* Text fit
-* Element-specific constraints
-
-If the ideal rectangle fits, the element is placed without degradation.
-
----
-
-# 13. Degradation Model
-
-The resolver uses explicit degradation states.
-
-The important states are:
+The resolution process is conceptually:
 
 ```text
-none
-shrunk
-repositioned
-dropped
+1. Validate advertisement
+        ↓
+2. Inspect surface geometry
+        ↓
+3. Select composition strategy
+        ↓
+4. Generate preferred rectangles
+        ↓
+5. Order elements by priority
+        ↓
+6. Attempt ideal placement
+        ↓
+7. Check geometry and text fit
+        ↓
+8. Attempt degradation if required
+        ↓
+9. Search free space when repositioning
+        ↓
+10. Drop an element if no valid placement remains
+        ↓
+11. Return ResolvedLayout
 ```
 
-These states are visible in the stress-test output and are also exposed to the renderer.
+The renderer never participates in this decision process.
 
 ---
 
-## 13.1 `none`
+# 13. Priority Model
 
-The element fits normally.
+Priority is the main protection mechanism.
 
-Example:
-
-```text
-headline [none]
-```
-
-No adaptation is necessary.
-
----
-
-## 13.2 `shrunk`
-
-The ideal element cannot fit at its preferred size, but it can fit after reducing its size while respecting the applicable minimum constraints.
-
-Example from the mobile portrait case:
-
-```text
-headline [shrunk]
-```
-
-This demonstrates real constraint handling rather than simply clipping the text.
-
----
-
-## 13.3 `repositioned`
-
-The ideal rectangle is unavailable, but another suitable free region exists.
-
-The resolver uses the geometry module to search for available space.
-
-Example:
-
-```text
-price [repositioned]
-logo  [repositioned]
-```
-
-This means the element remains visible but moves away from its preferred position.
-
----
-
-## 13.4 `dropped`
-
-If no acceptable placement remains, the element is removed.
-
-Dropping is the final degradation option.
-
-The important rule is that higher-priority elements are protected before lower-priority elements are sacrificed.
-
----
-
-# 14. Priority and Conflict Resolution
-
-Priority is one of the core constraints.
+Elements are resolved according to priority.
 
 For example:
 
 ```text
-Priority 1
-    |
-Priority 2
-    |
-Priority 3
-    |
-Priority 4
-    |
-Priority 5
+priority 1
+    ↓
+priority 2
+    ↓
+priority 3
+    ↓
+priority 4
 ```
 
-When space becomes constrained, the resolver attempts to preserve higher-priority content.
+Higher-priority elements receive preference when space becomes constrained.
 
-The deliberately impossible `1200 × 80` banner demonstrates this.
-
-The stress test produces:
-
-```text
-headline [dropped]
-product-image [none]
-cta [none]
-price [none]
-logo [none]
-```
-
-The important result is that the resolver does not simply clip everything.
-
-It makes an explicit degradation decision.
-
----
-
-# 15. Equal-Priority Tie Breaking
-
-The resolver also handles equal-priority conflicts.
-
-The stress test creates two hero elements with the same priority and the same ideal region.
-
-The result is:
-
-```text
-hero-first-declared  [none]
-hero-second-declared [repositioned]
-```
-
-The rule is deterministic:
-
-> When priority is equal, declaration order is preserved.
-
-Therefore, the first element claims the ideal rectangle.
-
-The next element must search for another available region.
-
-If no valid region exists, it may eventually be dropped.
-
-This makes the system deterministic and reproducible.
-
----
-
-# 16. Unseen Surface Generalization
-
-One of the most important tests is the unseen surface.
-
-The stress-test script creates a surface that is not part of the normal surface definitions.
-
-It is deliberately not referenced by:
-
-```text
-composition-strategies.ts
-resolver.ts
-```
-
-The resolver still successfully produces a layout.
-
-This demonstrates that the system is driven by:
-
-```text
-surface geometry
-+
-constraints
-+
-semantic roles
-```
-
-rather than by a list of known surface IDs.
-
-This is a central requirement of the architecture.
-
----
-
-# 17. DOM Rendering
-
-## `src/render-dom.ts`
-
-The renderer converts a `ResolvedLayout` into DOM elements.
-
-The renderer does not independently calculate layout.
-
-It uses the exact geometry supplied by the resolver:
-
-```text
-x
-y
-width
-height
-```
-
-This separation is important.
-
-The resolver owns layout decisions.
-
-The renderer owns visual presentation.
-
----
-
-# 18. Product Image Rendering
-
-Image elements are rendered using an actual `<img>` element.
-
-The product image is loaded from the public asset path.
-
-The renderer applies:
-
-```text
-width: 100%
-height: 100%
-object-fit: contain
-object-position: center
-```
-
-This keeps the product image inside the rectangle selected by the resolver without changing the resolver's geometry.
-
-The actual asset can therefore be replaced without changing the layout algorithm.
-
----
-
-# 19. Text Rendering
-
-Text elements are rendered as DOM text.
-
-The renderer applies the font size produced by the resolver.
-
-For example:
-
-```ts
-label.style.fontSize = `${element.fontSize ?? 14}px`;
-```
-
-When the resolver specifies a line clamp, the renderer applies the corresponding clamp to the inner text element.
-
-The outer element remains a flex container for centering.
-
-This separation prevents flex layout and `-webkit-line-clamp` from interfering with each other.
-
----
-
-# 20. Responsive Preview Scaling
-
-The demo renders the surface at its true logical pixel dimensions.
-
-For example:
-
-```text
-320 × 480
-480 × 320
-1920 × 250
-1080 × 1080
-```
-
-The preview is then scaled to fit the available browser frame.
-
-This distinction is important:
-
-> Preview scaling is a UI concern, not layout resolution.
-
-The resolver still calculates the layout using the actual surface dimensions.
-
-The renderer uses CSS transforms only to make the resolved surface fit inside the available demo area.
-
----
-
-# 21. Demo
-
-## `demo/`
-
-The demo provides the interactive browser interface.
-
-It allows the user to switch between surface profiles and visually inspect the resolved layout.
-
-The UI is intentionally secondary to the resolver.
-
-The stress-test script is the authoritative non-browser demonstration of the algorithm.
-
----
-
-# 22. Stress Tests
-
-## `scripts/stress-test.ts`
-
-The stress test validates four important behaviors.
-
----
-
-## Scenario 1 — Required Surfaces
-
-The same advertisement is resolved against all four required surfaces.
-
-Current required surfaces:
-
-```text
-Mobile Portrait
-320 × 480
-
-Mobile Landscape
-480 × 320
-
-Broadcast Lower Third
-1920 × 250
-
-Retail Kiosk
-1080 × 1080
-```
-
-The output demonstrates different arrangements rather than simply scaling one fixed layout.
-
-For example, the mobile portrait result contains:
-
-```text
-headline [shrunk]
-product-image [none]
-cta [none]
-price [repositioned]
-logo [repositioned]
-```
-
-while the other surfaces can fit the elements without degradation.
-
----
-
-# 23. Scenario 2 — Impossible Banner
-
-The stress test uses:
+This is especially important for the intentionally impossible:
 
 ```text
 1200 × 80
 ```
 
-This surface is deliberately too short.
+surface.
 
-The purpose is to prove that the resolver performs actual constraint resolution.
+The goal is not to make every element fit at any cost.
 
-The current output demonstrates:
-
-```text
-headline [dropped]
-product-image [none]
-cta [none]
-price [none]
-logo [none]
-```
-
-The dropped element is reported explicitly rather than being silently clipped.
+The goal is to preserve the most important content and degrade lower-priority content when necessary.
 
 ---
 
-# 24. Scenario 3 — Unseen Surface
+# 14. Degradation Cascade
 
-The stress test creates an additional surface directly inside the script.
+The resolver can move through degradation stages.
 
-It is not added to the normal strategy definitions.
+Conceptually:
+
+```text
+Ideal
+  ↓
+Shrink
+  ↓
+Reposition
+  ↓
+Drop
+```
+
+Not every element needs every stage.
+
+For example:
+
+```text
+headline
+    ideal → shrink
+
+price
+    ideal → reposition
+
+logo
+    ideal → reposition
+```
+
+The final `ResolvedElement` records the actual degradation state.
+
+This makes the resolver's behavior inspectable instead of silently changing the layout.
+
+---
+
+# 15. Shrinking
+
+Text elements can be reduced in size when their ideal geometry cannot accommodate the required content.
+
+The resolver uses minimum text constraints to avoid shrinking text below an acceptable readable size.
+
+This is especially relevant for surfaces with large viewing distances.
+
+The impossible banner demonstrates that the resolver cannot simply keep shrinking text indefinitely.
+
+---
+
+# 16. Repositioning
+
+When the ideal rectangle is unavailable, the resolver can search for another available rectangle.
+
+The free-space search uses the geometry module.
+
+The new rectangle must still satisfy the element's requirements.
+
+This allows lower-priority content to move into leftover space instead of immediately being removed.
+
+---
+
+# 17. Dropping
+
+If an element cannot fit even after the available degradation stages, the resolver can mark it as:
+
+```text
+visible = false
+```
+
+and:
+
+```text
+degradation = "dropped"
+```
+
+The element is therefore not clipped into an invalid rectangle.
+
+This distinction is important.
+
+A dropped element is an explicit resolver decision.
+
+It is not a rendering failure.
+
+---
+
+# 18. Equal-Priority Elements
+
+The resolver also handles elements with equal priority.
+
+When two elements have the same priority, declared order becomes the deterministic tiebreak.
+
+For example:
+
+```text
+hero-first-declared
+hero-second-declared
+```
+
+If both want the same ideal region:
+
+```text
+hero-first-declared
+    ↓
+claims ideal rectangle
+
+hero-second-declared
+    ↓
+cannot overlap
+    ↓
+searches for free space
+```
+
+The stress test demonstrates this behavior using:
+
+```text
+200 × 200
+```
+
+surface geometry.
+
+The second element is repositioned into remaining space.
+
+---
+
+# 19. Why There Is No Surface Identity Branching
+
+A key requirement is avoiding logic such as:
+
+```ts
+if (surface === "mobilePortrait")
+```
+
+or:
+
+```ts
+switch (surface.id)
+```
+
+The resolver instead reasons from:
+
+```text
+width
+height
+aspect ratio
+orientation
+constraints
+roles
+priorities
+available space
+```
+
+This is what makes the unseen-surface test meaningful.
+
+The resolver is not memorizing the five surfaces.
+
+It is using general geometric rules.
+
+---
+
+# 20. Unseen Surface Test
+
+The stress-test script defines an additional surface that is not referenced by:
+
+```text
+composition-strategies.ts
+```
+
+or:
+
+```text
+resolver.ts
+```
+
+The surface has its own dimensions:
+
+```text
+2400 × 300
+```
+
+The same advertisement is resolved against it.
+
+If the resolver successfully produces a layout, this demonstrates that it is responding to surface geometry rather than checking for a known surface ID.
+
+---
+
+# 21. DOM Renderer
+
+## `src/render-dom.ts`
+
+The renderer converts the resolver's output into actual DOM elements.
+
+The renderer does **not** recompute layout.
+
+It directly consumes:
+
+```text
+x
+y
+width
+height
+```
+
+from `ResolvedElement`.
+
+This separation is intentional.
+
+The resolver answers:
+
+> Where should the element be?
+
+The renderer answers:
+
+> How should that resolved rectangle be painted?
+
+---
+
+# 22. Product Image Rendering
+
+Image elements are rendered using an actual `<img>` element.
+
+The image source comes from the advertisement specification.
+
+The renderer uses:
+
+```text
+width: 100%
+height: 100%
+object-fit: contain
+```
+
+so the product image stays inside the rectangle selected by the resolver.
+
+The image itself does not influence the resolver's geometry.
+
+The resolver remains responsible for the image rectangle.
+
+---
+
+# 23. Text Rendering
+
+Text is rendered inside a separate inner element.
+
+This is important because the outer element is used for flex-based centering.
+
+The text itself can use:
+
+```text
+-webkit-line-clamp
+```
+
+when the resolver specifies a line limit.
+
+Keeping these responsibilities separate prevents flex layout and text clamping from fighting each other.
+
+---
+
+# 24. Scaling the Preview
+
+The demo surface is rendered at its resolved logical dimensions.
+
+The preview then scales to fit the available browser viewport.
+
+Conceptually:
+
+```text
+logical surface
+       ↓
+calculate available browser frame
+       ↓
+calculate scaleX
+       ↓
+calculate scaleY
+       ↓
+use smaller scale
+       ↓
+render preview
+```
+
+This scaling is only a presentation concern.
+
+It does not alter the resolver's geometry.
+
+---
+
+# 25. Demo
+
+The `demo/` directory contains the interactive Vite application.
+
+The demo allows the user to switch between the supported surfaces and observe how the same advertisement is resolved differently.
+
+The UI is intentionally secondary to the resolver.
+
+Its purpose is to make the resolution results visually inspectable.
+
+---
+
+# 26. Stress Test
+
+## `scripts/stress-test.ts`
+
+The stress test is the primary non-browser verification tool.
+
+It exercises four scenarios.
+
+---
+
+## Scenario 1 — Required Surfaces
+
+The same advertisement is resolved against:
+
+```text
+Mobile Portrait
+Mobile Landscape
+Broadcast Lower Third
+Retail Kiosk
+```
+
+The output demonstrates that the layouts are meaningfully different.
+
+The engine is not simply uniformly scaling one arrangement.
+
+---
+
+## Scenario 2 — Impossible Tight Banner
+
+The test uses:
+
+```text
+1200 × 80
+```
+
+The surface is deliberately too short to accommodate all ideal element sizes.
+
+The resolver must therefore make a real trade-off.
+
+The output demonstrates an explicit degradation:
+
+```text
+headline → dropped
+```
+
+while other elements remain placed.
+
+This proves that the resolver can acknowledge an impossible constraint rather than silently clipping content.
+
+---
+
+## Scenario 3 — Unseen Surface
+
+The script defines a surface that does not exist in the composition strategy or resolver source.
+
+The surface is:
+
+```text
+2400 × 300
+```
 
 The resolver still produces a valid layout.
 
-This verifies generalization.
-
-The test would be significantly weaker if the resolver simply contained a lookup table of known surface names.
+This demonstrates generalization based on geometry.
 
 ---
 
-# 25. Scenario 4 — Equal-Priority Conflict
+## Scenario 4 — Equal Priority
 
-Two hero elements are deliberately assigned the same priority and ideal region.
+Two hero elements deliberately share the same priority and ideal region.
 
-The resolver demonstrates deterministic tie-breaking:
+The resolver preserves declared order.
 
-```text
-first declared element
-        ↓
-claims ideal region
+The first element receives the preferred region.
 
-second declared element
-        ↓
-searches remaining space
-        ↓
-repositioned or dropped
-```
+The second element searches for available space and is repositioned.
 
-This verifies that conflict resolution is deterministic.
+This demonstrates deterministic conflict resolution.
 
 ---
 
-# 26. Verification Commands
+# 27. Verification Commands
 
-The project can be verified using the following commands.
-
-## Install dependencies
-
-```bash
-npm install
-```
-
-## Start development server
-
-```bash
-npm run dev
-```
-
-## Type-check
+Type-check:
 
 ```bash
 npm run typecheck
 ```
 
-The project currently passes TypeScript validation.
-
-## Run stress tests
+Run the resolver stress tests:
 
 ```bash
 npm run stress-test
 ```
 
-The stress-test scenarios currently execute successfully.
-
-## Production build
+Build the production application:
 
 ```bash
 npm run build
 ```
 
-The production build currently completes successfully.
-
----
-
-# 27. Current Verification Status
-
-The current implementation has been verified through:
-
-```text
-✓ TypeScript type-check
-✓ Mobile Portrait
-✓ Mobile Landscape
-✓ Broadcast Lower Third
-✓ Retail Kiosk
-✓ Impossibly Tight Banner
-✓ Unseen Surface
-✓ Equal-priority conflict
-✓ Production build
-✓ Real product image rendering
-✓ DOM rendering
-✓ Responsive preview scaling
-```
-
-The `npm test` command is not currently part of the package scripts.
-
-The project's automated verification command is:
+Run the development server:
 
 ```bash
-npm run stress-test
+npm run dev
 ```
 
-rather than:
+The project currently passes:
+
+```text
+npm run typecheck
+npm run stress-test
+npm run build
+```
+
+The project does not currently define an `npm test` script, so:
 
 ```bash
 npm test
 ```
 
+is not a valid project command unless a test script is added to `package.json`.
+
 ---
 
-# 28. Known Limitations
+# 28. Current Verified Behavior
 
-The engine intentionally has several limitations.
+The latest stress-test execution verifies:
+
+```text
+Mobile Portrait
+✓ resolves
+✓ headline shrinks
+✓ price repositions
+✓ logo repositions
+
+Mobile Landscape
+✓ resolves cleanly
+✓ no degradation
+
+Broadcast Lower Third
+✓ resolves cleanly
+✓ no degradation
+
+Retail Kiosk
+✓ resolves cleanly
+✓ no degradation
+
+Impossibly Tight Banner
+✓ product image placed
+✓ CTA placed
+✓ price placed
+✓ logo placed
+✓ headline explicitly dropped
+
+Unseen Surface
+✓ resolves cleanly
+✓ no surface-specific resolver branch
+
+Equal Priority
+✓ first element keeps ideal region
+✓ second element repositions deterministically
+```
+
+---
+
+# 29. Browser Compatibility
+
+The renderer uses standard browser APIs, including:
+
+```text
+DOM APIs
+Canvas 2D text measurement
+ResizeObserver
+standard CSS
+```
+
+The project is intended to work in current:
+
+```text
+Chrome
+Edge
+Firefox
+Safari
+```
+
+No experimental browser APIs are required by the architecture.
+
+---
+
+# 30. Known Limitations
 
 ## Text wrapping
 
-Text wrapping is modeled from measured single-line width and line height.
+Text wrapping is modeled from measured single-line width and line-height.
 
-It is not intended to reproduce the complete browser word-breaking algorithm.
+It is not a full browser-grade word-breaking engine.
 
-The resolver nevertheless uses text measurement to avoid knowingly placing text into boxes that are too small.
+The resolver nevertheless uses measurement to reject boxes that cannot reasonably contain the rendered text.
 
 ---
 
 ## Free-space search
 
-The free-space search uses a deterministic grid-based approach.
-
-The grid is:
+`findLargestFreeRect()` uses a fixed:
 
 ```text
 40 × 40
 ```
 
-This keeps the algorithm fast and predictable.
+grid.
 
-Because it is grid-based rather than pixel-exact, it can occasionally under-report the mathematically largest available rectangle.
+This makes the search deterministic and fast but not pixel-perfect.
+
+The algorithm may occasionally under-report the true largest free rectangle by a few percent.
 
 ---
 
 ## No global backtracking
 
-The resolver does not perform unlimited global optimization.
+The resolver makes one resolution attempt per element at each degradation stage.
 
-Once a higher-priority element has been successfully placed, the engine does not repeatedly move that element to optimize the placement of every lower-priority element.
+It does not perform full global backtracking.
 
-This is intentional.
+For example, it does not reopen an already placed higher-priority element just to create additional space for a lower-priority element.
 
-The architecture prioritizes:
+This follows the project's priority guarantee:
 
-```text
-priority guarantees
-+
-deterministic behavior
-+
-predictable degradation
-```
+> Higher-priority elements are never compromised for lower-priority elements.
 
-over globally optimal packing.
+The trade-off is that the resulting layout is not guaranteed to be globally optimal.
 
 ---
 
 ## No animation
 
-Switching surfaces in the demo does not currently use animation or transitions.
+The demo does not currently animate transitions when switching between surfaces.
 
-This is a presentation limitation and does not affect the resolver.
-
----
-
-# 29. Why the Architecture Matters
-
-The main value of this project is not that it can place five elements on a screen.
-
-The important part is that the layout decision is separated from the surface identity.
-
-A traditional implementation might look like:
-
-```ts
-if (surface === "mobile") {
-  ...
-}
-
-if (surface === "broadcast") {
-  ...
-}
-
-if (surface === "kiosk") {
-  ...
-}
-```
-
-That approach becomes increasingly difficult to maintain as new surfaces are introduced.
-
-This architecture instead follows:
-
-```text
-Advertisement intent
-        +
-Surface constraints
-        +
-Semantic roles
-        +
-Geometry
-        +
-Text measurement
-        ↓
-Constraint resolution
-        ↓
-Resolved layout
-```
-
-As a result, a new surface can be introduced without modifying the resolver specifically for that surface.
+Surface changes are rendered directly.
 
 ---
 
-# 30. Final Architecture Summary
+# 31. Architectural Guarantees
 
-The complete system can be summarized as:
+The project is designed around the following guarantees:
+
+### Single advertisement specification
+
+One `AdSpec` is reused across all surfaces.
+
+### Geometry-driven resolution
+
+Surface dimensions and constraints drive layout decisions.
+
+### No surface-ID branching
+
+The resolver does not contain special-case layout code for named surfaces.
+
+### Priority-aware degradation
+
+Important elements receive preference.
+
+### Explicit degradation
+
+Shrink, reposition, and drop decisions are represented in resolver output.
+
+### Text-aware placement
+
+Text measurement participates in fit decisions.
+
+### Deterministic behavior
+
+Equal-priority conflicts use declared order as the tiebreak.
+
+### Renderer separation
+
+The DOM renderer does not recalculate resolver geometry.
+
+### Unseen-surface generalization
+
+A previously unknown surface can be resolved using the same engine.
+
+---
+
+# 32. File Responsibilities
 
 ```text
-                 ONE AD SPEC
-                      |
-                      v
-              +---------------+
-              |   Validation  |
-              |   spec.ts     |
-              +---------------+
-                      |
-                      v
-              +---------------+
-              |    Surface    |
-              |  constraints  |
-              +---------------+
-                      |
-                      v
-              +---------------+
-              | Composition   |
-              |   Strategy    |
-              +---------------+
-                      |
-                      v
-              +---------------+
-              |   Resolver    |
-              |               |
-              | priority      |
-              | fit checks    |
-              | conflicts     |
-              | degradation   |
-              +---------------+
-                 /          \
-                /            \
-               v              v
-        geometry.ts     text-measure.ts
-                \            /
-                 \          /
-                  v        v
-              RESOLVED LAYOUT
-                      |
-                      v
-              +---------------+
-              | DOM Renderer  |
-              | render-dom.ts |
-              +---------------+
-                      |
-                      v
-                   DEMO UI
+src/
+│
+├── types.ts
+│   └── Domain types and resolver output types
+│
+├── spec.ts
+│   └── Advertisement definition and validation
+│
+├── surfaces.ts
+│   └── Surface constraints and required profiles
+│
+├── composition-strategies.ts
+│   └── Orientation/aspect-ratio based preferred compositions
+│
+├── geometry.ts
+│   └── Rectangle math and free-space search
+│
+├── text-measure.ts
+│   └── Text measurement and fallback heuristics
+│
+├── resolver.ts
+│   └── Core constraint-resolution algorithm
+│
+└── render-dom.ts
+    └── Resolved layout → DOM rendering
+
+demo/
+└── Interactive Vite demonstration
+
+scripts/
+└── stress-test.ts
+    └── Adversarial and generalization scenarios
 ```
 
-The engine therefore provides:
+---
 
-* One reusable advertisement specification
-* Multiple fundamentally different surfaces
-* Geometry-driven composition
-* Constraint-aware placement
-* Text-aware sizing
-* Priority-based degradation
-* Deterministic conflict resolution
-* Repositioning into available space
-* Explicit dropping when necessary
-* Generalization to unseen surfaces
-* Real DOM rendering
-* Production build support
-* Browser-based interactive visualization
-* Non-browser adversarial stress testing
+# 33. Design Philosophy
 
-The implementation is intentionally designed so that adding another surface does not require adding a new surface-specific branch to the resolver.
+The central design principle is:
 
-````
+> **The layout engine should resolve constraints, not memorize surfaces.**
 
+A surface is not treated as a special case.
+
+Instead, it is represented by measurable constraints.
+
+An advertisement is not manually redesigned for every output.
+
+Instead, the resolver starts with one specification and progressively adapts it according to:
+
+```text
+priority
+geometry
+available space
+text measurement
+minimum constraints
+collision state
+degradation rules
+```
+
+This makes the system extensible.
+
+Adding another surface should primarily mean providing another set of constraints, rather than adding another branch to the resolver.
+
+---
+
+# 34. Final Architecture Summary
+
+The completed system can therefore be summarized as:
+
+```text
+                    ONE AD SPEC
+                         │
+                         ▼
+                ┌────────────────┐
+                │    RESOLVER    │
+                │                │
+                │ constraints    │
+                │ priorities     │
+                │ geometry       │
+                │ text fit       │
+                │ degradation    │
+                └───────┬────────┘
+                        │
+        ┌───────────────┼────────────────┐
+        ▼               ▼                ▼
+   Mobile          Broadcast         Retail
+   Portrait        Lower Third       Kiosk
+        │               │                │
+        └───────────────┼────────────────┘
+                        │
+                        ▼
+                 UNKNOWN SURFACE
+                        │
+                        ▼
+                 SAME RESOLVER
+```
+
+The important result is that the engine does not need to know the name of the output surface.
+
+It receives constraints, resolves them, records any degradation, and hands the resulting geometry to the renderer.

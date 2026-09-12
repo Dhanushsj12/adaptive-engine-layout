@@ -368,52 +368,73 @@ All generated logic was manually audited, type-checked, and validated across bro
 
 # 16. Visual Proof & Verification Evidence
 
-All screenshots are stored under `screenshots/` and showcase both browser DOM previews and automated CLI stress-test logs:
+All screenshots are stored under `screenshots/` and showcase both browser DOM previews and automated CLI stress-test logs.
 
-### Mobile Portrait ($320 \times 480$)
-![Mobile Portrait](screenshots/mobileportrait)
+### Mobile Portrait (`320 × 480`)
 
----
-
-### Mobile Landscape ($480 \times 320$)
-![Mobile Landscape](screenshots/mobilelandscape)
+![Mobile Portrait](screenshots/mobileportrait.png)
 
 ---
 
-### Broadcast Lower Third ($1920 \times 250$)
-![Broadcast Lower Third](screenshots/broadcastlowerthird)
+### Mobile Landscape (`480 × 320`)
+
+![Mobile Landscape](screenshots/mobilelandscape.png)
 
 ---
 
-### Retail Kiosk ($1080 \times 1080$)
-![Retail Kiosk](screenshots/retailkiosk)
+### Broadcast Lower Third (`1920 × 250`)
+
+![Broadcast Lower Third](screenshots/broadcastlowerthird.png)
 
 ---
 
-### Unseen Surface ($600 \times 900$)
-![Unseen Surface](screenshots/unseen)
+### Retail Kiosk (`1080 × 1080`)
+
+![Retail Kiosk](screenshots/retailkiosk.png)
 
 ---
 
-### Impossible Tight Banner ($1200 \times 80$)
-![Impossible Tight Banner](screenshots/impossibly)
+### Print-to-Digital QR Panel (`600 × 900`)
+
+![Print-to-Digital QR Panel](screenshots/qrpanel.png)
 
 ---
 
-### Automated CLI Stress-Test Logs
+### Unseen Surface (`2400 × 300`)
 
-#### Scenario 1: Required Surface Profiles
-![Stress Test 1](screenshots/stresstest1)
-
----
-
-#### Scenario 2: Constrained Degradation & Tight Banner
-![Stress Test 2](screenshots/stresstest2)
+![Unseen Surface](screenshots/unseen.png)
 
 ---
 
-#### Scenario 3 & 4: Unseen Surface & Equal-Priority Tiebreaking
-![Stress Test 3](screenshots/stresstest3)
+### Impossible Tight Banner (`1200 × 80`)
+
+![Impossible Tight Banner](screenshots/impossibly.png)
+
+---
+
+## Automated CLI Stress-Test Logs
+
+### Scenario 1: Required Surface Profiles
+
+![Stress Test 1](screenshots/stresstest1.png)
+
+---
+
+### Scenario 2: Constrained Degradation & Tight Banner
+
+![Stress Test 2](screenshots/stresstest2.png)
+
+---
+
+### Scenario 3: Unseen Surface
+
+![Stress Test 3](screenshots/stresstest3.png)
+
+---
+
+### Scenario 4: Equal-Priority Tiebreaking
+
+![Stress Test 4](screenshots/stresstest4.png)
 
 ```
 

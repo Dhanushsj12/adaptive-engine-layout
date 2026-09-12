@@ -1564,5 +1564,54 @@ DOM RENDERING
 
 The result is a deterministic, testable and extensible layout engine capable of handling both known and previously unseen surface geometries.
 
+## Visual Proof and Stress-Test Evidence
+
+The repository includes visual evidence of the adaptive layout engine running across the required surfaces, an unseen surface, and adversarial stress-test cases.
+
+The screenshots below were captured directly from the running application.
+
+### Required Surface Results
+
+#### Mobile Portrait — 320 × 480
+
+![Mobile Portrait](screenshots/mobileportrait.png)
+
+#### Mobile Landscape — 480 × 320
+
+![Mobile Landscape](screenshots/mobilelandscape.png)
+
+#### Retail Kiosk
+
+![Retail Kiosk](screenshots/retailkiosk.png)
+
+#### Broadcast Lower Third
+
+![Broadcast Lower Third](screenshots/broadcastlowerthird.png)
+
+### Unseen Surface
+
+#### Unseen Surface
+
+![Unseen Surface](screenshots/unseen.png)
+
+### Stress-Test Evidence
+
+#### Stress Test 1
+
+![Stress Test 1](screenshots/stresstest1.png)
+
+#### Stress Test 2
+
+![Stress Test 2](screenshots/stresstest2.png)
+
+#### Stress Test 3
+
+![Stress Test 3](screenshots/stresstest3.png)
+
+### Impossible Constraint Case
+
+#### Impossible Constraint Handling
+
+![Impossible Constraint](screenshots/impossibly.png)
 ```
 ```

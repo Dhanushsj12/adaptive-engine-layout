@@ -1,1614 +1,407 @@
-````markdown
 # Adaptive Layout Engine for Multi-Surface Ads
 
-A constraint-based layout resolver that takes **one advertisement specification** and automatically adapts it across fundamentally different display surfaces.
-
-The engine does **not** contain surface-specific layout branches such as:
+A constraint-based layout resolver that takes **one ad specification** and adapts it across fundamentally different surfaces — a tall mobile interstitial, a wide broadcast lower-third, a square retail kiosk, and surfaces it has never seen before — without any `if (surface === "x")` branch.
 
 ## Live Demo
 
-[Adaptive Layout Engine — Proof Sheet](https://adaptive-engine-layout.vercel.app/)
+**[Adaptive Layout Engine — Proof Sheet](https://adaptive-engine-layout.vercel.app/)**
 
-Instead, the resolver selects a composition strategy from the **geometry and aspect ratio of the surface**, resolves element constraints, protects higher-priority content, and progressively degrades lower-priority elements when space becomes constrained.
+The live demo allows you to switch between the required surfaces and inspect how the same advertisement is resolved differently for each geometry.
 
----
-
-# 1. Project Goal
-
-The objective of this project is to demonstrate that a single advertisement specification can be rendered across multiple surfaces without creating a separate layout implementation for every screen size.
-
-The same ad contains:
-
-* Product image
-* Headline
-* Price
-* Call-to-action button
-* Brand/logo
-
-The resolver decides where these elements should be placed based on:
-
-* Surface dimensions
-* Surface aspect ratio
-* Element role
-* Element priority
-* Ideal dimensions
-* Minimum dimensions
-* Text measurement
-* Available free space
-* Degradation rules
-
-The system therefore separates:
-
-**What the advertisement contains**
-
-from
-
-**How the advertisement fits a particular surface.**
-
----
-
-# 2. Core Principle
-
-The advertisement is defined once.
-
-For example:
-
-```ts
-const sampleAdSpec = defineAd({
-  id: "airpods-pro-promo",
-  elements: [
-    ...
-  ],
-});
-```
-
-The same specification can then be resolved against completely different surfaces:
-
-```text
-320 × 480
-480 × 320
-1920 × 250
-1080 × 1080
-1200 × 80
-2400 × 300
-200 × 200
-```
-
-The resolver produces different arrangements for each surface.
-
-No surface identity needs to be hardcoded into the resolver.
-
----
-
-# 3. Required Surfaces
-
-The project supports the four required surfaces:
-
-| Surface               |  Resolution | Orientation |
-| --------------------- | ----------: | ----------- |
-| Mobile Portrait       |   320 × 480 | Portrait    |
-| Mobile Landscape      |   480 × 320 | Landscape   |
-| Broadcast Lower Third |  1920 × 250 | Wide        |
-| Retail Kiosk          | 1080 × 1080 | Square      |
-
-In addition, the project includes adversarial and generalization scenarios.
-
----
-
-# 4. Additional Test Surfaces
-
-## Impossible Tight Banner
-
-```text
-1200 × 80
-```
-
-This surface is deliberately too short to comfortably contain all elements at their ideal sizes.
-
-The resolver must protect higher-priority content and degrade lower-priority content when necessary.
-
-This demonstrates that the system does not simply clip elements or allow them to overflow.
-
----
-
-## Unseen Surface
-
-The stress test also defines a surface that is **not registered inside the normal composition strategy configuration**.
-
-The resolver receives only its geometry and determines an appropriate layout from the surface characteristics.
-
-This is important because it demonstrates generalization.
-
-The resolver is not simply matching:
-
-```text
-surface name → predefined layout
-```
-
-Instead, it uses:
-
-```text
-surface geometry → composition strategy → constraint resolution
-```
-
----
-
-## Equal-Priority Conflict
-
-A separate test creates two elements with:
-
-* The same role
-* The same priority
-* The same ideal region
-
-This demonstrates the deterministic tiebreak rule.
-
-When priorities are equal, the declared element order is preserved.
-
-The first element gets the preferred region.
-
-The second element attempts to use remaining free space and is repositioned or degraded if necessary.
-
----
-
-# 5. Adaptive Resolution Pipeline
-
-The overall pipeline is:
-
-```text
-Ad Specification
-       │
-       ▼
-Surface Geometry
-       │
-       ▼
-Composition Strategy
-       │
-       ▼
-Ideal Element Rectangles
-       │
-       ▼
-Constraint Resolution
-       │
-       ├── Fits
-       │
-       ├── Shrink
-       │
-       ├── Reposition
-       │
-       └── Drop
-       │
-       ▼
-Resolved Layout
-       │
-       ▼
-DOM Renderer
-```
-
-The resolver therefore produces a layout before the browser renderer paints it.
-
----
-
-# 6. Element Priority
-
-Every element has a priority.
-
-Lower priority numbers represent higher importance.
-
-Example:
-
-```text
-priority 1 → highest
-priority 2
-priority 3
-priority 4
-priority 5 → lower priority
-```
-
-The resolver processes elements according to priority.
-
-Higher-priority elements are protected before lower-priority elements.
-
-This allows the engine to make meaningful decisions when the available surface becomes constrained.
-
-For example:
-
-```text
-Headline
-    ↓
-Price
-    ↓
-CTA
-    ↓
-Logo
-```
-
-If there is insufficient space, the resolver does not arbitrarily remove content.
-
-It follows the configured priority and degradation rules.
-
----
-
-# 7. Degradation Model
-
-The resolver supports progressive degradation.
-
-An element can generally go through states such as:
-
-```text
-Ideal
-  ↓
-Shrunk
-  ↓
-Repositioned
-  ↓
-Dropped
-```
-
-The exact transition depends on the element and the available geometry.
-
-The important property is that degradation is explicit.
-
-The stress-test output reports these decisions.
-
-Example:
-
-```text
-headline [shrunk]
-price    [repositioned]
-logo     [repositioned]
-```
-
-This makes the resolver's decisions observable instead of hiding them inside the renderer.
-
----
-
-# 8. Text-Aware Layout
-
-Text is not treated as an arbitrary rectangle.
-
-The project includes:
-
-```text
-src/text-measure.ts
-```
-
-This module provides text measurement used by the resolver when determining whether a text element can fit inside a candidate rectangle.
-
-The browser uses Canvas 2D text measurement.
-
-The Node-side stress-test environment uses the documented fallback heuristic.
-
-This allows the resolver to make text-aware fit decisions without requiring a browser for every test.
-
----
-
-# 9. Geometry Engine
-
-The geometry utilities are contained in:
-
-```text
-src/geometry.ts
-```
-
-The geometry layer provides rectangle operations used by the resolver.
-
-It is responsible for concepts such as:
-
-* Rectangle intersection
-* Rectangle containment
-* Free-space calculations
-* Candidate placement
-* Largest available free rectangle
-
-The free-space finder is used when an element cannot remain in its ideal position and needs to be repositioned.
-
----
-
-# 10. Composition Strategies
-
-Composition strategies are contained in:
-
-```text
-src/composition-strategies.ts
-```
-
-The strategies describe how different surface orientations should initially arrange the semantic roles.
-
-The strategy layer is intentionally separated from the constraint resolver.
-
-This means:
-
-```text
-Composition strategy
-        +
-Surface geometry
-        +
-Ad specification
-        ↓
-Resolver
-```
-
-The strategy provides a good initial arrangement.
-
-The resolver is responsible for making that arrangement actually fit.
-
----
-
-# 11. Constraint Resolver
-
-The core algorithm is implemented in:
-
-```text
-src/resolver.ts
-```
-
-The resolver:
-
-1. Receives an ad specification.
-2. Receives a surface.
-3. Selects a composition strategy based on geometry.
-4. Calculates ideal element rectangles.
-5. Orders elements according to priority.
-6. Checks whether each element fits.
-7. Attempts degradation when necessary.
-8. Searches for remaining free space when repositioning is required.
-9. Drops an element only when it cannot be accommodated.
-10. Returns a resolved layout.
-
-The renderer does not make these layout decisions.
-
----
-
-# 12. DOM Renderer
-
-The resolved layout is rendered by:
-
-```text
-src/render-dom.ts
-```
-
-The renderer receives the already-resolved geometry:
-
-```text
-x
-y
-width
-height
-```
-
-and applies it directly to DOM elements.
-
-The renderer therefore does not independently calculate the layout.
-
-Its responsibility is to:
-
-* Create DOM elements
-* Apply resolved geometry
-* Render text
-* Render buttons
-* Render product images
-* Apply visual degradation indicators
-* Scale the preview to the available browser frame
-
-This separation prevents the renderer from silently changing resolver decisions.
-
----
-
-# 13. Product Image
-
-The demo includes a product image asset.
-
-The image is loaded from the public asset path used by the demo.
-
-The resolver still determines:
-
-```text
-x
-y
-width
-height
-```
-
-The DOM renderer simply places the image inside that resolved rectangle.
-
-This preserves the architecture:
-
-```text
-Resolver → geometry
-Renderer → pixels
-```
-
----
-
-# 14. Interactive Demo
-
-The project includes an interactive demo under:
-
-```text
-demo/
-```
-
-The demo allows the user to switch between the available surfaces.
-
-This makes it possible to visually inspect how the same advertisement changes across different aspect ratios.
-
-The demo also exposes the resolution decisions so that changes such as:
-
-```text
-shrunk
-repositioned
-dropped
-```
-
-can be observed.
-
----
-
-# 15. Project Structure
-
-```text
-adaptive-layout-engine/
-│
-├── src/
-│   ├── types.ts
-│   ├── spec.ts
-│   ├── surfaces.ts
-│   ├── composition-strategies.ts
-│   ├── resolver.ts
-│   ├── geometry.ts
-│   ├── text-measure.ts
-│   ├── render-dom.ts
-│   └── index.ts
-│
-├── demo/
-│   └── ...
-│
-├── scripts/
-│   └── stress-test.ts
-│
-├── public/
-│   └── image.png
-│
-├── screenshots/
-│   ├── mobileportrait.png
-│   ├── mobilelandscape.png
-│   ├── broadcastlowerthird.png
-│   ├── retailkiosk.png
-│   ├── unseen.png
-│   ├── impossibly.png
-│   ├── stresstest1.png
-│   ├── stresstest2.png
-│   └── stresstest3.png
-│
-├── ARCHITECTURE.md
-├── README.md
-├── package.json
-├── tsconfig.json
-└── vite.config.ts
-```
-
----
-
-# 16. Important Source Files
-
-## `src/types.ts`
-
-Defines the core type system.
-
-It contains the contracts for:
-
-* Advertisement specifications
-* Advertisement elements
-* Surface definitions
-* Element roles
-* Resolved elements
-* Resolved layouts
-* Degradation states
-
----
-
-## `src/spec.ts`
-
-Contains:
-
-```ts
-defineAd()
-```
-
-This validates advertisement specifications before they enter the resolver.
-
-Validation includes:
-
-* Duplicate element IDs
-* Invalid roles
-* Invalid priorities
-* Invalid image aspect ratios
-* Missing text/button content
-* Empty specifications
-
-It also provides convenience constructors:
-
-```ts
-text()
-image()
-button()
-```
-
----
-
-## `src/surfaces.ts`
-
-Contains:
-
-```ts
-defineSurface()
-```
-
-and the required surface definitions.
-
-The surface describes geometry rather than containing advertisement-specific layout logic.
-
----
-
-## `src/composition-strategies.ts`
-
-Contains the orientation-aware composition strategies.
-
-The important architectural rule is that the resolver should not contain code such as:
-
-```ts
-if (surface.name === "Mobile Portrait")
-```
-
-or:
-
-```ts
-if (surface.name === "Retail Kiosk")
-```
-
-The system should reason from geometry and semantic roles instead.
-
----
-
-## `src/resolver.ts`
-
-Contains the main constraint-resolution algorithm.
-
-This is the central component of the project.
-
----
-
-## `src/geometry.ts`
-
-Contains rectangle and free-space calculations.
-
-It supports repositioning when an element cannot remain in its ideal location.
-
----
-
-## `src/text-measure.ts`
-
-Contains text measurement functionality.
-
-Browser execution uses Canvas 2D measurement.
-
-Node execution uses the documented fallback.
-
----
-
-## `src/render-dom.ts`
-
-Converts the resolved layout into actual DOM elements.
-
-It does not replace the resolver's geometry with a second layout algorithm.
-
----
-
-## `scripts/stress-test.ts`
-
-Contains deterministic adversarial scenarios used to verify the resolver.
-
-This is one of the most important files for demonstrating that the system actually works.
-
----
-
-# 17. Installation
-
-Clone the repository and install dependencies:
+## Setup
 
 ```bash
 npm install
-```
-
----
-
-# 18. Run the Demo
-
-Start the development server:
-
-```bash
 npm run dev
 ```
 
-Open the local URL printed by Vite.
-
-Typically:
+Open the printed local URL, typically:
 
 ```text
 http://localhost:5173
 ```
 
-Use the surface selector to switch between the different surfaces.
+Use the surface list to switch between the required profiles, the intentionally brutal stress-test surface, and the unseen surface.
 
----
-
-# 19. Type Check
-
-Run:
+## Type Check
 
 ```bash
 npm run typecheck
 ```
 
-A successful result should finish without TypeScript errors.
+The complete TypeScript project passes type checking with no errors.
 
-Current project status:
-
-```text
-TypeScript typecheck: PASS
-```
-
----
-
-# 20. Production Build
-
-Run:
+## Production Build
 
 ```bash
 npm run build
 ```
 
-This performs the TypeScript check and creates the Vite production bundle.
+The production bundle is generated successfully with Vite.
 
-A successful build confirms that the project can be compiled for production.
+## Stress Test
 
-Current project status:
-
-```text
-Production build: PASS
-```
-
----
-
-# 21. Stress Test
-
-Run:
+The resolver can be tested without the browser:
 
 ```bash
 npm run stress-test
 ```
 
-The stress test runs without requiring the browser.
+The stress test covers four important cases.
 
-It validates four major behaviors.
+### 1. Required Surfaces
 
----
+The same advertisement specification is resolved across:
 
-## Scenario 1 — Required Surfaces
+* Mobile Portrait — `320×480`
+* Mobile Landscape — `480×320`
+* Broadcast Lower Third — `1920×250`
+* Retail Kiosk — `1080×1080`
 
-The same advertisement specification is resolved against:
+The layouts are meaningfully different rather than simply scaling one fixed composition.
 
-```text
-Mobile Portrait
-Mobile Landscape
-Broadcast Lower Third
-Retail Kiosk
-```
-
-The layouts are meaningfully different.
-
-The engine is not simply uniformly scaling one fixed layout.
-
-For example, the current stress-test output demonstrates:
-
-```text
-Mobile Portrait
-    headline → shrunk
-    price    → repositioned
-    logo     → repositioned
-
-Mobile Landscape
-    all elements → fit cleanly
-
-Broadcast Lower Third
-    all elements → fit cleanly
-
-Retail Kiosk
-    all elements → fit cleanly
-```
-
----
-
-# 22. Scenario 2 — Impossible Banner
-
-The stress test uses:
-
-```text
-1200 × 80
-```
-
-The surface is intentionally extremely short.
-
-The resolver must deal with a genuine constraint conflict.
-
-The current result demonstrates an actual degradation:
-
-```text
-headline → dropped
-```
-
-while the remaining elements are placed within the available geometry.
-
-The important point is that the headline is not simply clipped by the browser.
-
-The resolver explicitly reports:
-
-```text
-dropped
-```
-
-because there is no suitable remaining space after higher-priority placement decisions.
-
----
-
-# 23. Scenario 3 — Unseen Surface
-
-The stress test defines an additional surface only inside the test script.
-
-It is not added as a special case to:
-
-```text
-composition-strategies.ts
-```
-
-or:
-
-```text
-resolver.ts
-```
-
-The resolver still produces a valid layout.
-
-This demonstrates that the system can generalize to a surface it was not explicitly configured for.
-
-The key design principle is:
-
-```text
-Surface geometry
-        ↓
-Aspect ratio / orientation
-        ↓
-Strategy
-        ↓
-Constraint resolution
-```
-
-rather than:
-
-```text
-Surface name
-        ↓
-Hardcoded layout
-```
-
----
-
-# 24. Scenario 4 — Equal Priority
-
-The stress test creates two elements with the same priority and the same ideal region.
-
-The resolver uses declared order as the deterministic tiebreak.
-
-The first element gets the preferred rectangle.
-
-The second element searches for available free space.
-
-The current result demonstrates:
-
-```text
-hero-first-declared
-    → ideal placement
-
-hero-second-declared
-    → repositioned
-```
-
-This proves that the resolver handles conflicts deterministically.
-
----
-
-# 25. Current Verification
-
-The project has currently passed:
-
-```text
-✓ npm run typecheck
-✓ npm run stress-test
-✓ npm run build
-```
-
-The stress test currently verifies:
-
-```text
-✓ Mobile Portrait
-✓ Mobile Landscape
-✓ Broadcast Lower Third
-✓ Retail Kiosk
-✓ Impossible Tight Banner
-✓ Unseen Surface
-✓ Equal-Priority Conflict
-```
-
-The interactive demo has also been manually verified across the available surfaces.
-
----
-
-# 26. Browser Compatibility
-
-The implementation uses standard browser APIs.
-
-The project relies primarily on:
-
-* DOM APIs
-* Canvas 2D text measurement
-* ResizeObserver
-* Standard CSS
-* TypeScript
-* Vite
-
-It does not require experimental browser APIs.
-
-The intended target is current versions of:
-
-```text
-Chrome
-Edge
-Firefox
-Safari
-```
-
----
-
-# 27. Architecture Guarantees
-
-The implementation is designed around several important guarantees.
-
-## One Ad Specification
-
-The advertisement is defined once.
-
-The same specification is reused across every surface.
-
----
-
-## No Surface-Identity Branching
-
-The resolver should not contain surface-specific code such as:
-
-```ts
-if (surface === "Mobile Portrait")
-```
-
-The layout decision is based on surface geometry and semantic composition.
-
----
-
-## Priority Preservation
-
-Higher-priority content is protected before lower-priority content.
-
----
-
-## Explicit Degradation
-
-The resolver reports whether content was:
-
-```text
-placed
-shrunk
-repositioned
-dropped
-```
-
-rather than silently allowing overflow.
-
----
-
-## Deterministic Resolution
-
-Given the same:
-
-```text
-Ad specification
-+
-Surface
-+
-Resolver configuration
-```
-
-the resolver produces deterministic output.
-
----
-
-# 28. Known Limitations
-
-## Text Wrapping
-
-Text wrapping is modeled using measured single-line width and line height.
-
-It is not intended to reproduce the full browser word-breaking algorithm.
-
-The resolver nevertheless uses text measurement when making fit decisions so that it does not knowingly create boxes that are obviously too small for their content.
-
----
-
-## Free-Space Search
-
-The current:
-
-```text
-findLargestFreeRect
-```
-
-implementation uses a fixed:
-
-```text
-40 × 40
-```
-
-grid.
-
-This makes the search:
-
-* Fast
-* Deterministic
-* Simple
-
-However, it is not pixel-perfect.
-
-The calculated largest free rectangle can occasionally be slightly smaller than the mathematically optimal rectangle.
-
----
-
-## No Global Backtracking
-
-The resolver performs one resolution attempt per element at each degradation stage.
-
-It does not perform unrestricted global backtracking.
-
-For example, it does not repeatedly move a previously placed higher-priority element solely to optimize the position of a lower-priority element.
-
-This is intentional because the system prioritizes the guarantee that higher-priority elements are not compromised by lower-priority content.
-
----
-
-## No Animation
-
-The demo currently switches between surfaces without animation or transition effects.
-
-Animation is outside the core layout-resolution problem.
-
----
-## Time Spent
-
-Approximately 3–5 days, including implementation, debugging, stress testing, documentation, and visual verification.
-
-# 29. Why This Is More Than a Responsive UI
-
-A normal responsive implementation might contain separate rules such as:
-
-```text
-mobile CSS
-tablet CSS
-desktop CSS
-kiosk CSS
-broadcast CSS
-```
-
-This project takes a different approach.
-
-The system has:
-
-```text
-Advertisement semantics
-        +
-Surface constraints
-        +
-Composition strategy
-        +
-Resolution algorithm
-```
-
-The final position is calculated rather than manually authored for every surface.
-
-This makes the system suitable for testing new surface geometries without adding a new layout branch for every resolution.
-
----
-
-# 30. Example Resolution Lifecycle
-
-Consider a headline.
-
-The resolver may initially calculate:
-
-```text
-Ideal rectangle
-```
-
-If that rectangle fits:
-
-```text
-IDEAL
-```
-
-If the ideal rectangle is too large:
-
-```text
-SHRINK
-```
-
-If shrinking cannot solve the collision:
-
-```text
-REPOSITION
-```
-
-If no acceptable rectangle remains:
-
-```text
-DROP
-```
-
-The final resolved state is then passed to the DOM renderer.
-
----
-
-# 31. Separation of Responsibilities
-
-The project intentionally separates responsibilities.
-
-```text
-types.ts
-    ↓
-Data contracts
-
-spec.ts
-    ↓
-Ad validation
-
-surfaces.ts
-    ↓
-Surface definitions
-
-composition-strategies.ts
-    ↓
-Initial composition
-
-geometry.ts
-    ↓
-Rectangle mathematics
-
-text-measure.ts
-    ↓
-Text fit information
-
-resolver.ts
-    ↓
-Constraint resolution
-
-render-dom.ts
-    ↓
-Browser rendering
-
-stress-test.ts
-    ↓
-Adversarial verification
-```
-
-This makes the core algorithm easier to reason about and test independently from the UI.
-
----
-
-# 32. Development Workflow
-
-Recommended workflow:
-
-```bash
-npm install
-```
-
-Then:
-
-```bash
-npm run typecheck
-```
-
-Then:
-
-```bash
-npm run stress-test
-```
-
-Then:
-
-```bash
-npm run build
-```
-
-Finally:
-
-```bash
-npm run dev
-```
-
-This verifies the project in the following order:
-
-```text
-Type correctness
-       ↓
-Algorithm correctness
-       ↓
-Production compilation
-       ↓
-Visual verification
-```
-
----
-
-# 33. AI Tool Disclosure
-
-This project was developed with Claude as a pair-programming collaborator.
-
-AI assistance was used during development for areas including:
-
-* Resolver algorithm design
-* Composition strategy design
-* Debugging
-* Test scenario design
-* Demo implementation
-* Documentation
-
-The implementation was manually reviewed and tested.
-
-The stress-test scenarios are executed against the actual resolver rather than being hypothetical examples.
-
----
-
-# 34. Final Status
-
-The Adaptive Layout Engine currently provides:
-
-```text
-✓ One advertisement specification
-✓ Four required surfaces
-✓ Additional unseen surface
-✓ Impossible tight-banner test
-✓ Equal-priority conflict test
-✓ Geometry-based resolution
-✓ Priority-aware degradation
-✓ Shrink behavior
-✓ Reposition behavior
-✓ Drop behavior
-✓ Text-aware fitting
-✓ Free-space search
-✓ DOM rendering
-✓ Product image rendering
-✓ Interactive demo
-✓ TypeScript type checking
-✓ Production build
-✓ Automated stress test
-✓ Visual proof screenshots
-```
-
-The project is ready for final repository submission and demonstration.
-
----
-
-# 35. Commands Summary
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Start demo:
-
-```bash
-npm run dev
-```
-
-Type check:
-
-```bash
-npm run typecheck
-```
-
-Run resolver stress tests:
-
-```bash
-npm run stress-test
-```
-
-Build production bundle:
-
-```bash
-npm run build
-```
-
----
-
-# 36. Important Note About `npm test`
-
-The project currently does not define an `npm test` script.
-
-Therefore:
-
-```bash
-npm test
-```
-
-is not required for the current project configuration.
-
-The project's dedicated automated resolver verification command is:
-
-```bash
-npm run stress-test
-```
-
-The commands that currently pass are:
-
-```text
-npm run typecheck
-npm run stress-test
-npm run build
-```
-
----
-
-# 37. Git Submission
-
-Before pushing the final version, check:
-
-```bash
-git status
-```
-
-Then:
-
-```bash
-git add .
-git commit -m "Finalize adaptive layout engine"
-git push origin main
-```
-
-After pushing, verify:
-
-```bash
-git status
-```
-
-Expected result:
-
-```text
-On branch main
-Your branch is up to date with 'origin/main'.
-
-nothing to commit, working tree clean
-```
-
----
-
-# 38. Visual Proof and Stress-Test Evidence
-
-The repository includes visual evidence of the adaptive resolver running across the four required surfaces, an unseen surface, and an intentionally constrained stress-test surface.
-
-All screenshots are stored in the repository under:
-
-```text
-screenshots/
-```
-
-The screenshots are captured from the running browser demo and from the automated stress-test execution.
-
----
-
-## Required Surface Results
-
-### Mobile Portrait — 320 × 480
-
-The same advertisement specification is resolved into a portrait-oriented composition.
-
-The resolver adapts the element sizes and positions to fit the constrained surface while preserving the higher-priority content.
+### Mobile Portrait
 
 ![Mobile Portrait](screenshots/mobileportrait.png)
 
----
-
-### Mobile Landscape — 480 × 320
-
-The same advertisement is resolved into a landscape composition.
-
-The product image, headline, price, CTA, and branding are arranged differently from the portrait surface without introducing a surface-specific layout branch.
+### Mobile Landscape
 
 ![Mobile Landscape](screenshots/mobilelandscape.png)
 
----
-
-### Broadcast Lower Third — 1920 × 250
-
-The wide surface allows the advertisement to use a horizontal composition.
-
-The elements fit at their intended sizes without requiring degradation.
+### Broadcast Lower Third
 
 ![Broadcast Lower Third](screenshots/broadcastlowerthird.png)
 
----
-
-### Retail Kiosk — 1080 × 1080
-
-The square surface produces a larger stacked composition suitable for a kiosk-style display.
-
-The same advertisement specification is reused without changing the advertisement data.
+### Retail Kiosk
 
 ![Retail Kiosk](screenshots/retailkiosk.png)
 
----
+## 2. Deliberately Impossible Surface
 
-# 39. Unseen-Surface Generalization
-
-The project also verifies an important architectural property: the resolver can handle a surface that was not registered as one of the normal demo surfaces.
-
-The unseen surface is created directly inside the stress-test script.
-
-It is not added as a special case to the resolver.
-
-The resolver determines the composition from the surface geometry and constraints rather than matching a predefined surface name.
-
-The resulting layout demonstrates that the architecture follows:
+The stress test includes an intentionally tight:
 
 ```text
-Surface Geometry
-       +
-Constraints
-       +
-Semantic Element Roles
-       ↓
-Composition Strategy
-       ↓
-Constraint Resolution
-       ↓
-Resolved Layout
+1200×80
 ```
 
-This means a new surface can be introduced without adding logic such as:
+banner.
 
-```ts
-if (surface.name === "New Surface") {
-    ...
-}
+The available height is insufficient for all ideal element sizes. The resolver therefore applies its priority and degradation rules instead of silently clipping content.
+
+In the actual resolver output, the lower-priority/conflicting content is dropped while the remaining elements remain valid.
+
+![Impossible Banner](screenshots/impossibly.png)
+
+### Stress-Test Evidence
+
+The following screenshots show the continuous stress-test output.
+
+![Stress Test 1](screenshots/stresstest1.png)
+
+![Stress Test 2](screenshots/stresstest2.png)
+
+![Stress Test 3](screenshots/stresstest3.png)
+
+The output demonstrates:
+
+* priority-aware placement
+* shrinking when required
+* repositioning into available space
+* dropping when no valid placement remains
+* preservation of higher-priority elements
+* deterministic conflict resolution
+
+## 3. Unseen-Surface Generalization
+
+The project also tests a surface that is defined only inside:
+
+```text
+scripts/stress-test.ts
 ```
 
-The unseen-surface screenshot provides visual evidence that the resolver successfully produces a valid layout for a surface outside the normal set of registered demo surfaces.
+It is not added to:
+
+```text
+src/composition-strategies.ts
+src/resolver.ts
+```
+
+This is intentional.
+
+The resolver determines an appropriate composition from surface geometry and aspect ratio rather than checking for a specific surface name.
 
 ![Unseen Surface](screenshots/unseen.png)
 
----
+This demonstrates that a new surface can be introduced without adding a new surface-specific branch to the resolver.
 
-# 40. Adversarial Stress-Test Evidence
+## 4. Equal-Priority Conflict
 
-The project includes an intentionally difficult `1200 × 80` surface.
+The stress test creates two hero elements with the same priority and the same ideal region.
 
-This surface is deliberately too short to accommodate every element at its ideal size.
+The resolver preserves declared order:
 
-The purpose of this test is to demonstrate that the resolver performs explicit constraint resolution instead of allowing elements to overflow or silently disappear.
+1. The first element claims the ideal rectangle.
+2. The second element detects the occupied region.
+3. The resolver searches for remaining free space.
+4. The second element is repositioned when valid space exists.
+5. If no valid space exists, degradation can continue according to the resolver rules.
 
-![Impossible Tight Banner](screenshots/impossibly.png)
+This verifies deterministic behavior when priority alone cannot break a conflict.
 
-The stress-test output demonstrates that the resolver protects higher-priority content and applies degradation where necessary.
-
-The screenshots below are continuous parts of the same stress-test execution.
-
----
-
-## Stress Test — Part 1
-
-The first screenshot shows the beginning of the automated stress-test output.
-
-It verifies the same advertisement across the four required surfaces and reports the resolved state of each element.
+## Architecture
 
 ```text
-Mobile Portrait
-Mobile Landscape
-Broadcast Lower Third
-Retail Kiosk
+Ad Specification
+       │
+       ▼
+   Validation
+   defineAd()
+       │
+       ▼
+ Surface Geometry
+       │
+       ▼
+ Composition Strategy
+       │
+       ▼
+ Constraint Resolver
+       │
+       ├── Ideal placement
+       ├── Collision detection
+       ├── Text-aware sizing
+       ├── Shrink
+       ├── Reposition
+       └── Drop
+       │
+       ▼
+ Resolved Layout
+       │
+       ▼
+ DOM Renderer
 ```
 
-The output records whether each element was placed normally, shrunk, repositioned, or otherwise degraded.
-
-![Stress Test Part 1](screenshots/stresstest1.png)
-
----
-
-## Stress Test — Part 2
-
-The second screenshot continues the same stress-test execution.
-
-It shows the intentionally impossible `1200 × 80` banner.
-
-The surface cannot accommodate all elements at their ideal sizes, so the resolver protects higher-priority content and applies degradation where necessary.
-
-The important property is that the decision is explicit and deterministic.
-
-![Stress Test Part 2](screenshots/stresstest2.png)
-
----
-
-## Stress Test — Part 3
-
-The third screenshot continues the same execution and demonstrates the remaining adversarial scenarios.
-
-These include:
-
-* Unseen-surface generalization
-* Equal-priority conflict resolution
-* Deterministic declaration-order tie breaking
-
-The test therefore verifies not only normal placement but also the resolver's behavior under constrained and conflicting conditions.
-
-![Stress Test Part 3](screenshots/stresstest3.png)
-
----
-
-# 41. Stress-Test Summary
-
-The automated stress test verifies the following:
+## Project Structure
 
 ```text
-✓ Same advertisement across four required surfaces
-✓ Deliberately impossible 1200 × 80 surface
-✓ Explicit degradation decisions
-✓ Priority-aware resolution
-✓ Unseen-surface generalization
-✓ Equal-priority conflict resolution
-✓ Deterministic tie breaking
-✓ No surface-name-specific resolver branch
-```
+src/
+├── types.ts
+├── spec.ts
+├── surfaces.ts
+├── composition-strategies.ts
+├── resolver.ts
+├── geometry.ts
+├── text-measure.ts
+└── render-dom.ts
 
-The stress test is executed with:
+demo/
+└── Interactive Vite demo
 
-```bash
-npm run stress-test
-```
+scripts/
+└── stress-test.ts
 
-The screenshots in this section are supporting visual evidence, while the automated stress-test output is the authoritative verification of the resolver behavior.
-
----
-
-# 42. Demo Screenshot Summary
-
-The repository includes screenshots of the browser-based interactive demo.
-
-```text
 screenshots/
 ├── mobileportrait.png
 ├── mobilelandscape.png
 ├── broadcastlowerthird.png
 ├── retailkiosk.png
-├── unseen.png
 ├── impossibly.png
+├── unseen.png
 ├── stresstest1.png
 ├── stresstest2.png
 └── stresstest3.png
+
+ARCHITECTURE.md
+README.md
 ```
 
-These screenshots demonstrate that the resolved layouts are rendered through the actual browser DOM renderer rather than being static mockups.
+### `src/types.ts`
 
----
+Defines the type system used throughout the layout engine, including advertisement elements, roles, surfaces, resolved geometry, and degradation states.
 
-# 43. Final Submission Evidence
+### `src/spec.ts`
 
-The repository therefore contains three complementary forms of evidence:
+Provides `defineAd()` and convenience constructors for text, image, and button elements.
+
+It validates the advertisement specification before layout resolution.
+
+### `src/surfaces.ts`
+
+Defines `defineSurface()` and the required surface profiles.
+
+### `src/composition-strategies.ts`
+
+Contains orientation/aspect-ratio-based composition strategies rather than surface-name-specific resolver branches.
+
+### `src/resolver.ts`
+
+Contains the core constraint-resolution algorithm.
+
+It is responsible for:
+
+* prioritization
+* ideal placement
+* fit checking
+* text-aware constraints
+* shrinking
+* repositioning
+* dropping
+* deterministic conflict handling
+
+### `src/geometry.ts`
+
+Contains rectangle calculations, collision checks, and the free-space search used during repositioning.
+
+### `src/text-measure.ts`
+
+Uses real browser Canvas 2D text measurement and provides a documented fallback for Node-based stress testing.
+
+### `src/render-dom.ts`
+
+Converts the resolved layout into actual DOM elements for the interactive demo.
+
+### `demo/`
+
+Contains the Vite/TypeScript interactive proof sheet used to visually inspect the resolved layouts.
+
+### `scripts/stress-test.ts`
+
+Contains adversarial tests for required surfaces, impossible constraints, unseen surfaces, and equal-priority conflicts.
+
+## Constraint and Degradation Model
+
+The resolver follows a priority-aware degradation model.
+
+Conceptually:
 
 ```text
-Architecture Documentation
-        +
-Automated Stress Testing
-        +
-Browser-Based Visual Demonstration
+Ideal placement
+      │
+      ▼
+Does it fit?
+ ┌────┴────┐
+ │         │
+YES       NO
+ │         │
+ ▼         ▼
+Place    Shrink
+           │
+           ▼
+        Re-check
+           │
+           ▼
+       Reposition
+           │
+           ▼
+          Drop
 ```
 
-Together they demonstrate that the Adaptive Layout Engine is not simply a collection of hardcoded layouts.
+Higher-priority elements are protected before lower-priority elements.
 
-The same advertisement specification is resolved dynamically according to surface geometry, constraints, semantic roles, priorities, and available space.
+This prevents the resolver from sacrificing important content merely to preserve every element.
 
----
+## Why This Is Not Uniform Scaling
 
-# Conclusion
+A simple scaling solution would shrink the entire advertisement uniformly.
 
-The Adaptive Layout Engine demonstrates a constraint-based approach to multi-surface advertisement rendering.
+This implementation instead resolves each element independently against the target surface.
 
-Instead of maintaining a separate layout for every device or display, the system defines the advertisement once and resolves its placement against the constraints of each surface.
+For example, on the mobile portrait surface:
 
-The key architectural idea is:
+* the headline can shrink
+* the price can be repositioned
+* the logo can be repositioned
+* the product image can retain its own resolved geometry
+* the CTA maintains its own placement constraints
 
-```text
-ONE AD SPEC
-     ↓
-SURFACE GEOMETRY
-     ↓
-COMPOSITION STRATEGY
-     ↓
-CONSTRAINT RESOLUTION
-     ↓
-DEGRADATION
-     ↓
-RESOLVED LAYOUT
-     ↓
-DOM RENDERING
+The resulting composition therefore changes structurally instead of merely becoming smaller.
+
+## Text-Aware Layout
+
+Text is measured before accepting a resolved rectangle.
+
+The resolver considers:
+
+* font size
+* measured text width
+* line height
+* available width
+* available height
+* minimum readable size
+
+This allows the resolver to reject placements that would knowingly produce invalid text rendering.
+
+## Determinism
+
+The resolver is deterministic.
+
+For equal-priority elements, declared order is used as the tiebreaker.
+
+This makes stress-test results reproducible and prevents arbitrary layout changes between runs.
+
+## Known Limitations
+
+### Text Wrapping
+
+Text wrapping is modeled from measured single-line width and line height.
+
+It is not intended to reproduce every browser word-breaking behavior.
+
+The resolver nevertheless uses the measurements to reject boxes that cannot reasonably contain the rendered text.
+
+### Free-Space Search
+
+`findLargestFreeRect()` uses a fixed `40×40` grid.
+
+This keeps the search fast and deterministic, but it is not pixel-exact and can occasionally under-report the true largest free rectangle by a small amount.
+
+### No Backtracking
+
+Only one resolution attempt per element is made at each degradation stage.
+
+The resolver does not backtrack and move an already-placed higher-priority element simply to improve the placement of a lower-priority element.
+
+This is intentional because the priority guarantee requires higher-priority elements to remain protected.
+
+### Demo Transitions
+
+The demo does not currently use animation or transitions when switching surfaces.
+
+## Browser Compatibility
+
+The implementation uses standard:
+
+* DOM APIs
+* Canvas 2D text measurement
+* ResizeObserver
+* standard CSS
+
+It is intended for current Chrome, Edge, Firefox, and Safari.
+
+## Verification
+
+The following commands are used to verify the project:
+
+```bash
+npm run typecheck
+npm run stress-test
+npm run build
 ```
 
-The result is a deterministic, testable and extensible layout engine capable of handling both known and previously unseen surface geometries.
+All three verification commands complete successfully.
 
-## Visual Proof and Stress-Test Evidence
+The stress test additionally verifies:
 
-The repository includes visual evidence of the adaptive layout engine running across the required surfaces, an unseen surface, and adversarial stress-test cases.
+* required surface resolution
+* impossible constraint handling
+* unseen-surface generalization
+* equal-priority conflict handling
 
-The screenshots below were captured directly from the running application.
+## Time Spent
 
-### Required Surface Results
+Approximately **3–5 days**, including implementation, debugging, stress testing, documentation, deployment, and visual verification.
 
-#### Mobile Portrait — 320 × 480
+## AI Tool Disclosure
 
-![Mobile Portrait](screenshots/mobileportrait.png)
+This project was built with Claude as a pair-programming collaborator, including assistance with the resolver algorithm design, composition templates, implementation, debugging, and demo development.
 
-#### Mobile Landscape — 480 × 320
-
-![Mobile Landscape](screenshots/mobilelandscape.png)
-
-#### Retail Kiosk
-
-![Retail Kiosk](screenshots/retailkiosk.png)
-
-#### Broadcast Lower Third
-
-![Broadcast Lower Third](screenshots/broadcastlowerthird.png)
-
-### Unseen Surface
-
-#### Unseen Surface
-
-![Unseen Surface](screenshots/unseen.png)
-
-### Stress-Test Evidence
-
-#### Stress Test 1
-
-![Stress Test 1](screenshots/stresstest1.png)
-
-#### Stress Test 2
-
-![Stress Test 2](screenshots/stresstest2.png)
-
-#### Stress Test 3
-
-![Stress Test 3](screenshots/stresstest3.png)
-
-### Impossible Constraint Case
-
-#### Impossible Constraint Handling
-
-![Impossible Constraint](screenshots/impossibly.png)
-```
-```
+Every stress-test scenario documented in this repository was executed against the actual resolver during development. The reported coordinates and degradation states are therefore based on real resolver output rather than hypothetical examples.

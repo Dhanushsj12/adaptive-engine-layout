@@ -24,7 +24,7 @@ const productAd = defineAd({
       id: "headline",
       role: "primary",
       priority: 1,
-      content: "NovaBuds Pro — Premium Sound",
+      content: "NovaBuds Pro",
     }),
 
     image({

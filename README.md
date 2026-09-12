@@ -28,7 +28,7 @@ The deployed demo is provided for interactive verification, while the repository
 
 ## Time Spent
 
-Approximately 4–5 days, spent primarily on: designing the priority-ordered constraint resolver and its shrink/reposition/drop degradation logic, the text-measurement and font-sizing pipeline (including fixing real rendering bugs found through live browser testing rather than assumed correct), and writing the architecture documentation and stress-test evidence.
+Approximately 3 days, spent primarily on: designing the priority-ordered constraint resolver and its shrink/reposition/drop degradation logic, the text-measurement and font-sizing pipeline (including fixing real rendering bugs found through live browser testing rather than assumed correct), and writing the architecture documentation and stress-test evidence.
 
 ---
 

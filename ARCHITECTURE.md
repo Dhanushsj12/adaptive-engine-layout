@@ -23,7 +23,8 @@ This separation allows the same advertisement specification to be resolved again
 - Mobile Landscape — `480 × 320`
 - Broadcast Lower Third — `1920 × 250`
 - Retail Kiosk — `1080 × 1080`
-- Unseen Surface — defined only by the stress test
+- Unseen Surface (demo) — `600 × 900`, defined only in `demo/main.ts`
+- Unseen Surface (stress test) — `2400 × 300`, defined only in `scripts/stress-test.ts`
 - Impossibly Tight Banner — `1200 × 80`
 
 The resolver does not identify surfaces by name and then choose a hardcoded layout.
@@ -57,7 +58,7 @@ const sampleAdSpec = defineAd({
     ...
   ],
 });
-````
+```
 
 The same specification is passed to the resolver for every surface.
 
@@ -335,9 +336,9 @@ Impossibly Tight Banner
 1200 × 80
 ```
 
-and an unseen surface defined directly inside the stress-test script.
+and two separate unseen surfaces: one defined inside `demo/main.ts` (`600 × 900`, used in the interactive demo), and one defined directly inside `scripts/stress-test.ts` (`2400 × 300`, used only in the CLI stress test). These are two independent proofs of generalization, in two different execution contexts, not the same surface.
 
-The unseen surface is particularly important because it demonstrates that the resolver is not simply matching known surface IDs.
+The unseen surfaces are particularly important because they demonstrate that the resolver is not simply matching known surface IDs.
 
 ---
 
@@ -403,7 +404,7 @@ findLargestFreeRect
 
 This is used when an element cannot occupy its ideal position because another element has already claimed that space.
 
-Instead of immediately dropping the element, the resolver searches for available space.
+Instead of immediately dropping the element, the resolver searches for available space and sizes the repositioned element to as much of that free space as it can use — capped at its own ideal size, floored at its hard minimum — rather than always shrinking to the bare minimum.
 
 This enables the `repositioned` degradation state.
 
@@ -423,7 +424,9 @@ Text cannot be treated as an arbitrary rectangle because text dimensions depend 
 
 The browser implementation uses Canvas 2D text measurement.
 
-This allows the resolver to make text-aware decisions.
+Line-count estimation simulates real greedy word-wrapping (not a naive total-width division) and explicitly rejects any font size where a single word would be too wide for its box, which is what prevents the browser from ever being forced to break a word mid-letter.
+
+Measurement and rendering both import a single shared `RENDER_FONT_FAMILY` constant, so the font used for measurement can never silently drift from the font actually rendered.
 
 In environments where browser measurement is unavailable, the module provides a documented heuristic fallback.
 
@@ -621,10 +624,6 @@ Priority 1
 Priority 2
     |
 Priority 3
-    |
-Priority 4
-    |
-Priority 5
 ```
 
 When space becomes constrained, the resolver attempts to preserve higher-priority content.
@@ -678,16 +677,19 @@ This makes the system deterministic and reproducible.
 
 One of the most important tests is the unseen surface.
 
-The stress-test script creates a surface that is not part of the normal surface definitions.
+Two separate unseen surfaces exist in this project, each proving generalization independently:
 
-It is deliberately not referenced by:
+- One is defined inside `demo/main.ts` (`600 × 900`), used only in the interactive browser demo.
+- One is defined inside `scripts/stress-test.ts` (`2400 × 300`), used only in the CLI stress test.
+
+Neither is referenced by:
 
 ```text
 composition-strategies.ts
 resolver.ts
 ```
 
-The resolver still successfully produces a layout.
+The resolver still successfully produces a valid layout for both.
 
 This demonstrates that the system is driven by:
 
@@ -734,16 +736,18 @@ The renderer owns visual presentation.
 
 Image elements are rendered using an actual `<img>` element.
 
-The product image is loaded from the public asset path.
+The product image is loaded from the public asset path (`public/image.png`), with a fallback to `/image.png` if no explicit source is provided.
 
 The renderer applies:
 
 ```text
 width: 100%
 height: 100%
-object-fit: contain
+object-fit: cover
 object-position: center
 ```
+
+`object-fit: cover` fills the resolver-assigned rectangle completely, cropping the image as needed rather than letterboxing it — appropriate for a hero product photo across very differently-shaped surfaces (a tall portrait crop looks very different from a wide banner crop of the same photo).
 
 This keeps the product image inside the rectangle selected by the resolver without changing the resolver's geometry.
 
@@ -882,13 +886,15 @@ The dropped element is reported explicitly rather than being silently clipped.
 
 # 24. Scenario 3 — Unseen Surface
 
-The stress test creates an additional surface directly inside the script.
+The stress test creates an additional surface (`2400 × 300`) directly inside the script.
 
 It is not added to the normal strategy definitions.
 
 The resolver still produces a valid layout.
 
 This verifies generalization.
+
+This is a separate surface from the demo's own unseen `600 × 900` QR panel (see Section 16) — the project demonstrates the same generalization property in two independent execution contexts.
 
 The test would be significantly weaker if the resolver simply contained a lookup table of known surface names.
 
@@ -969,7 +975,8 @@ The current implementation has been verified through:
 ✓ Broadcast Lower Third
 ✓ Retail Kiosk
 ✓ Impossibly Tight Banner
-✓ Unseen Surface
+✓ Unseen Surface (demo)
+✓ Unseen Surface (stress test)
 ✓ Equal-priority conflict
 ✓ Production build
 ✓ Real product image rendering
@@ -999,11 +1006,9 @@ The engine intentionally has several limitations.
 
 ## Text wrapping
 
-Text wrapping is modeled from measured single-line width and line height.
+Text wrapping is modeled from measured word widths and simulated greedy word-wrap, using real Canvas 2D measurement in the browser and a documented character-count heuristic fallback in Node.
 
-It is not intended to reproduce the complete browser word-breaking algorithm.
-
-The resolver nevertheless uses text measurement to avoid knowingly placing text into boxes that are too small.
+It is not intended to reproduce the complete browser word-breaking algorithm (hyphenation, locale-specific line-breaking rules, etc.), but it does explicitly guard against forcing a mid-word break by rejecting any font size where a single word would not fit its box.
 
 ---
 
@@ -1163,16 +1168,12 @@ The engine therefore provides:
 * Deterministic conflict resolution
 * Repositioning into available space
 * Explicit dropping when necessary
-* Generalization to unseen surfaces
-* Real DOM rendering
+* Generalization to unseen surfaces (two independent proofs)
+* Real DOM rendering with an actual product image
 * Production build support
 * Browser-based interactive visualization
 * Non-browser adversarial stress testing
 
-
-
-
-```markdown
 ---
 
 # 31. Visual Proof and Stress-Test Evidence
@@ -1227,13 +1228,16 @@ The same advertisement specification is reused without changing the advertisemen
 
 The project also verifies an important architectural property: the resolver can handle a surface that was not registered as one of the normal demo surfaces.
 
-The unseen surface is created directly inside the stress-test script.
+Two unseen surfaces are used, in two separate execution contexts:
 
-It is not added as a special case to the resolver.
+- `600 × 900`, created directly inside `demo/main.ts` and used in the interactive browser demo.
+- `2400 × 300`, created directly inside `scripts/stress-test.ts` and used only in the CLI stress test.
+
+Neither is added as a special case to the resolver.
 
 The resolver determines the composition from the surface geometry and constraints rather than matching a predefined surface name.
 
-The resulting layout demonstrates that the architecture follows:
+The resulting layouts demonstrate that the architecture follows:
 
 ```text
 Surface Geometry
@@ -1247,8 +1251,6 @@ Composition Strategy
 Constraint Resolution
        ↓
 Resolved Layout
+```
 
 The implementation is intentionally designed so that adding another surface does not require adding a new surface-specific branch to the resolver.
-
-````
-
